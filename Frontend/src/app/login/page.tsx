@@ -10,10 +10,11 @@ import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import Layout from '@/components/Layout';
+import { useToast } from '@/components/ToastContainer';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Please enter a valid email address').max(254, 'Email address is too long'),
+  password: z.string().min(1, 'Password is required').max(128, 'Password is too long'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -21,8 +22,8 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const router = useRouter();
+  const { showToast } = useToast();
 
   const {
     register,
@@ -34,15 +35,38 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await authApi.login(data);
       setToken(response.token);
-      router.push('/dashboard');
+      
+      showToast({
+        type: 'success',
+        message: 'Successfully logged in! Welcome back.',
+        duration: 3000
+      });
+      
+      // Small delay to show the toast before redirecting
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 500);
     } catch (err) {
-      const error = err as {response?: {data?: {error?: string}}};
-      setError(error.response?.data?.error || 'Login failed. Please try again.');
+      console.error('Login error:', err);
+      const error = err as {response?: {data?: {error?: string, message?: string}}};
+      
+      let errorMessage = 'Login failed. Please try again.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      showToast({
+        type: 'error',
+        message: errorMessage,
+        duration: 6000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -65,11 +89,6 @@ export default function LoginPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
 
           <div className="space-y-4">
             <div>

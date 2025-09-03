@@ -20,39 +20,65 @@ const register = ErrorHandler.asyncHandler(async (req, res) => {
 
   const { email, password, firstName, lastName } = value;
 
-  const existingUser = await User.findByEmail(email);
-  if (existingUser) {
-    logger.security('Registration attempt with existing email', {
-      email,
+  try {
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      logger.security('Registration attempt with existing email', {
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Email already registered', 409, 'EMAIL_EXISTS');
+    }
+
+    const user = await User.createUser(email, password, firstName, lastName);
+    const token = generateToken(user.id);
+
+    logger.info('User registered successfully', {
+      userId: user.id,
+      email: user.email,
       ip: req.ip
     });
-    throw ErrorHandler.createError('Email already registered', 409, 'EMAIL_EXISTS');
-  }
 
-  const user = await User.createUser(email, password, firstName, lastName);
-  const token = generateToken(user.id);
-
-  logger.info('User registered successfully', {
-    userId: user.id,
-    email: user.email,
-    ip: req.ip
-  });
-
-  logger.authEvent('REGISTRATION_SUCCESS', user.id, {
-    email: user.email,
-    ip: req.ip
-  });
-
-  res.status(201).json({
-    message: 'User registered successfully',
-    user: {
-      id: user.id,
+    logger.authEvent('REGISTRATION_SUCCESS', user.id, {
       email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-    },
-    token,
-  });
+      ip: req.ip
+    });
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+      },
+      token,
+    });
+  } catch (dbError) {
+    // Handle database-specific errors
+    if (dbError.code === '42P01') { // Table does not exist
+      logger.error('Database table missing during registration', {
+        error: dbError.message,
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Service temporarily unavailable. Please try again later.', 503, 'DATABASE_ERROR');
+    } else if (dbError.code === 'ECONNREFUSED') {
+      logger.error('Database connection refused during registration', {
+        error: dbError.message,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Service temporarily unavailable. Please try again later.', 503, 'DATABASE_CONNECTION_ERROR');
+    } else if (dbError.code === '23505') { // Unique violation
+      logger.security('Registration attempt with existing email (DB constraint)', {
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Email already registered', 409, 'EMAIL_EXISTS');
+    }
+    // Re-throw if it's already an ErrorHandler error
+    throw dbError;
+  }
 });
 
 const login = ErrorHandler.asyncHandler(async (req, res) => {
@@ -67,48 +93,68 @@ const login = ErrorHandler.asyncHandler(async (req, res) => {
 
   const { email, password } = value;
 
-  const user = await User.findByEmail(email);
-  if (!user) {
-    logger.security('Login attempt with non-existent email', {
-      email,
-      ip: req.ip
-    });
-    throw ErrorHandler.createError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
-  }
+  try {
+    const user = await User.findByEmail(email);
+    if (!user) {
+      logger.security('Login attempt with non-existent email', {
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+    }
 
-  const isValidPassword = await User.verifyPassword(password, user.password);
-  if (!isValidPassword) {
-    logger.security('Login attempt with invalid password', {
+    const isValidPassword = await User.verifyPassword(password, user.password);
+    if (!isValidPassword) {
+      logger.security('Login attempt with invalid password', {
+        userId: user.id,
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+    }
+
+    const token = generateToken(user.id);
+
+    logger.info('User login successful', {
       userId: user.id,
-      email,
+      email: user.email,
       ip: req.ip
     });
-    throw ErrorHandler.createError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
-  }
 
-  const token = generateToken(user.id);
-
-  logger.info('User login successful', {
-    userId: user.id,
-    email: user.email,
-    ip: req.ip
-  });
-
-  logger.authEvent('LOGIN_SUCCESS', user.id, {
-    email: user.email,
-    ip: req.ip
-  });
-
-  res.json({
-    message: 'Login successful',
-    user: {
-      id: user.id,
+    logger.authEvent('LOGIN_SUCCESS', user.id, {
       email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-    },
-    token,
-  });
+      ip: req.ip
+    });
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+      },
+      token,
+    });
+  } catch (dbError) {
+    // Handle database-specific errors
+    if (dbError.code === '42P01') { // Table does not exist
+      logger.error('Database table missing during login', {
+        error: dbError.message,
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Service temporarily unavailable. Please try again later.', 503, 'DATABASE_ERROR');
+    } else if (dbError.code === 'ECONNREFUSED') {
+      logger.error('Database connection refused during login', {
+        error: dbError.message,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Service temporarily unavailable. Please try again later.', 503, 'DATABASE_CONNECTION_ERROR');
+    }
+    // Re-throw if it's already an ErrorHandler error
+    throw dbError;
+  }
 });
 
 const getMe = async (req, res) => {

@@ -90,9 +90,9 @@ class PathValidator {
       /%c1%9c/gi,   // Alternative UTF-8 encoding
       /\0/g,        // Null bytes
       /\/\.\.\//g,  // /../
-      /\\\.\.\\g,   // \..\
+      /\\\.\.\\/g,  // \..\
       /\/\.\.$/g,   // /.. at end
-      /\\\.\.$/g    // \.. at end
+      /\\\.\.\$/g   // \.. at end
     ];
 
     return dangerousPatterns.some(pattern => pattern.test(filePath));

@@ -79,16 +79,16 @@ const passwordSchema = Joi.string()
     'password.uppercase': 'Password must contain at least one uppercase letter',
     'password.lowercase': 'Password must contain at least one lowercase letter',
     'password.digit': 'Password must contain at least one number',
-    'password.special': 'Password must contain at least one special character (!@#$%^&*()_+-=[]{};\':"|,.<>/?~`)',
+    'password.special': 'Password must contain at least one special character',
     'password.common': 'Password is too common. Please choose a more unique password',
     'password.repeated': 'Password must not contain more than 2 consecutive identical characters',
-    'password.sequential': 'Password must not contain sequential characters (e.g., abcd, 1234, qwer)'
+    'password.sequential': 'Password must not contain sequential characters'
   });
 
 const registerSchema = Joi.object({
   email: Joi.string()
     .email({ tlds: { allow: true } })
-    .max(254) // RFC 5321 maximum email length
+    .max(254)
     .required()
     .messages({
       'string.email': 'Please provide a valid email address',

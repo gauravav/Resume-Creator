@@ -41,21 +41,21 @@ export default function Toast({ id, type, message, duration = 5000, onClose }: T
   const Icon = icons[type];
 
   return (
-    <div className={`max-w-sm w-full ${colors[type]} border rounded-lg shadow-lg pointer-events-auto`}>
+    <div className={`max-w-md w-full min-w-[300px] ${colors[type]} border rounded-lg shadow-lg pointer-events-auto`}>
       <div className="p-4">
         <div className="flex items-start">
           <div className="flex-shrink-0">
             <Icon className={`h-5 w-5 ${iconColors[type]}`} />
           </div>
-          <div className="ml-3 w-0 flex-1">
-            <p className="text-sm font-medium">{message}</p>
+          <div className="ml-3 flex-1 min-w-0">
+            <p className="text-sm font-medium break-words leading-relaxed">{message}</p>
           </div>
           <div className="ml-4 flex-shrink-0 flex">
             <button
               onClick={() => onClose(id)}
               className={`inline-flex ${type === 'success' ? 'text-green-400 hover:text-green-500' : 
                 type === 'error' ? 'text-red-400 hover:text-red-500' : 
-                'text-yellow-400 hover:text-yellow-500'}`}
+                'text-yellow-400 hover:text-yellow-500'} transition-colors`}
             >
               <X className="h-5 w-5" />
             </button>

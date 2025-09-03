@@ -11,6 +11,7 @@ const resumeRoutes = require('./routes/resume');
 const jobRoutes = require('./routes/jobs');
 const rewriteRoutes = require('./routes/rewrite');
 const { initializeBucket } = require('./config/minio');
+const { initializeDatabase, checkDatabaseConnection } = require('./config/dbInit');
 
 const app = express();
 const PORT = process.env.PORT || 3200;
@@ -65,6 +66,11 @@ app.use('*', (req, res) => {
 
 const startServer = async () => {
   try {
+    // Initialize database first
+    await checkDatabaseConnection();
+    await initializeDatabase();
+    
+    // Then initialize MinIO
     await initializeBucket();
     
     const server = app.listen(PORT, () => {

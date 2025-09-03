@@ -10,12 +10,20 @@ import { Eye, EyeOff, Mail, Lock, User, UserPlus } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import Layout from '@/components/Layout';
+import { useToast } from '@/components/ToastContainer';
+import PasswordRequirements from '@/components/PasswordRequirements';
 
 const registerSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  firstName: z.string().min(1, 'First name is required').max(50, 'First name must not exceed 50 characters'),
+  lastName: z.string().min(1, 'Last name is required').max(50, 'Last name must not exceed 50 characters'),
+  email: z.string().email('Please enter a valid email address').max(254, 'Email address is too long'),
+  password: z.string()
+    .min(12, 'Password must be at least 12 characters long')
+    .max(128, 'Password must not exceed 128 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/\d/, 'Password must contain at least one number')
+    .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -28,8 +36,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState('');
   const router = useRouter();
+  const { showToast } = useToast();
 
   const {
     register,
@@ -41,15 +50,38 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await authApi.register(data);
       setToken(response.token);
-      router.push('/dashboard');
+      
+      showToast({
+        type: 'success',
+        message: 'Account created successfully! Welcome to Resume Creator.',
+        duration: 4000
+      });
+      
+      // Small delay to show the toast before redirecting
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1000);
     } catch (err) {
-      const error = err as {response?: {data?: {error?: string}}};
-      setError(error.response?.data?.error || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      const error = err as {response?: {data?: {error?: string, message?: string}}};
+      
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      showToast({
+        type: 'error',
+        message: errorMessage,
+        duration: 6000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -72,11 +104,6 @@ export default function RegisterPage() {
           </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -149,6 +176,9 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="Password"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                  }}
                 />
                 <button
                   type="button"
@@ -165,6 +195,7 @@ export default function RegisterPage() {
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
               )}
+              <PasswordRequirements password={password} />
             </div>
 
             <div>
