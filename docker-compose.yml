@@ -4,9 +4,9 @@ services:
     image: postgres:15-alpine
     container_name: rector-postgres
     environment:
-      - POSTGRES_DB=resume_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=H3ugKOlSKcnvfPoxfaDdvw
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
@@ -27,8 +27,8 @@ services:
     container_name: rector-minio
     command: server /data --console-address ":9001"
     environment:
-      - MINIO_ROOT_USER=fMme6c3dVjYnjHXGQyWi
-      - MINIO_ROOT_PASSWORD=sgbJZ69ft2TjMI55uTkjYzEmtLrnQ04FesUIJBtB
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     ports:
       - "9002:9000"  # API
       - "9003:9001"  # Console
@@ -54,7 +54,7 @@ services:
       - rector-network
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set rector http://minio:9000 fMme6c3dVjYnjHXGQyWi sgbJZ69ft2TjMI55uTkjYzEmtLrnQ04FesUIJBtB;
+      /usr/bin/mc alias set rector http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
       /usr/bin/mc mb rector/resumes --ignore-existing;
       /usr/bin/mc mb rector/documents --ignore-existing;
       /usr/bin/mc mb rector/images --ignore-existing;
@@ -73,19 +73,19 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=resume_db
-      - DB_USER=postgres
-      - DB_PASSWORD=H3ugKOlSKcnvfPoxfaDdvw
-      - JWT_SECRET=93556066e026958a26a0aacd4177aacf18a2246892543c881b3e76f4ff6afcd23f66a179c0fb70568a40ce52dd085abaee99e2293cf19880a1fd9e37d86399c5
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_USE_SSL=false
-      - MINIO_ACCESS_KEY=fMme6c3dVjYnjHXGQyWi
-      - MINIO_SECRET_KEY=sgbJZ69ft2TjMI55uTkjYzEmtLrnQ04FesUIJBtB
-      - MINIO_BUCKET_NAME=resumes
+      - NODE_ENV=${NODE_ENV}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_PORT=${MINIO_PORT}
+      - MINIO_USE_SSL=${MINIO_USE_SSL}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
     depends_on:
       postgres:
         condition: service_healthy
@@ -111,7 +111,7 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - rector-backend
     networks:
