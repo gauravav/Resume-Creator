@@ -1,0 +1,132 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: rector-postgres
+    environment:
+      - POSTGRES_DB=resume_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=H3ugKOlSKcnvfPoxfaDdvw
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - rector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: rector-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=fMme6c3dVjYnjHXGQyWi
+      - MINIO_ROOT_PASSWORD=sgbJZ69ft2TjMI55uTkjYzEmtLrnQ04FesUIJBtB
+    ports:
+      - "9002:9000"  # API
+      - "9003:9001"  # Console
+    volumes:
+      - minio_data:/data
+      - ../minio/minio-data:/import  # Import existing data
+    networks:
+      - rector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO Client - Initialize buckets
+  mc:
+    image: minio/mc:latest
+    container_name: rector-mc
+    depends_on:
+      - minio
+    networks:
+      - rector-network
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set rector http://minio:9000 fMme6c3dVjYnjHXGQyWi sgbJZ69ft2TjMI55uTkjYzEmtLrnQ04FesUIJBtB;
+      /usr/bin/mc mb rector/resumes --ignore-existing;
+      /usr/bin/mc mb rector/documents --ignore-existing;
+      /usr/bin/mc mb rector/images --ignore-existing;
+      /usr/bin/mc mb rector/backups --ignore-existing;
+      /usr/bin/mc policy set public rector/resumes;
+      echo 'MinIO buckets initialized successfully';
+      exit 0;
+      "
+
+  # Rector Backend Application
+  rector-backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: rector-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=resume_db
+      - DB_USER=postgres
+      - DB_PASSWORD=H3ugKOlSKcnvfPoxfaDdvw
+      - JWT_SECRET=93556066e026958a26a0aacd4177aacf18a2246892543c881b3e76f4ff6afcd23f66a179c0fb70568a40ce52dd085abaee99e2293cf19880a1fd9e37d86399c5
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      - MINIO_ACCESS_KEY=fMme6c3dVjYnjHXGQyWi
+      - MINIO_SECRET_KEY=sgbJZ69ft2TjMI55uTkjYzEmtLrnQ04FesUIJBtB
+      - MINIO_BUCKET_NAME=resumes
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mc:
+        condition: service_completed_successfully
+    networks:
+      - rector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Rector Frontend Application
+  rector-frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: rector-frontend
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    depends_on:
+      - rector-backend
+    networks:
+      - rector-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  rector-network:
+    driver: bridge
