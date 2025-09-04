@@ -744,7 +744,7 @@ export default function EditableResumeForm({
                           type="number"
                           placeholder="Year"
                           value={edu.duration.start.year || ''}
-                          onChange={(e) => updateEducationDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateEducationDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -763,7 +763,7 @@ export default function EditableResumeForm({
                           type="number"
                           placeholder="Year"
                           value={edu.duration.end.year || ''}
-                          onChange={(e) => updateEducationDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateEducationDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -925,7 +925,7 @@ export default function EditableResumeForm({
                           type="number"
                           placeholder="Year"
                           value={exp.duration.start.year || ''}
-                          onChange={(e) => updateExperienceDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateExperienceDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -944,7 +944,7 @@ export default function EditableResumeForm({
                           type="number"
                           placeholder="Year"
                           value={exp.duration.end.year || ''}
-                          onChange={(e) => updateExperienceDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateExperienceDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>

@@ -175,8 +175,8 @@ export default function SaveCustomResumeDialog({
       console.error('Dialog - Save failed:', error);
       console.error('Dialog - Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
-        response: error?.response?.data,
-        status: error?.response?.status
+        response: (error as {response?: {data?: unknown; status?: number}})?.response?.data,
+        status: (error as {response?: {data?: unknown; status?: number}})?.response?.status
       });
       setSaveError(error instanceof Error ? error.message : 'Failed to save resume. Please try again.');
     } finally {

@@ -59,7 +59,7 @@ export const validateTokenWithServer = async (): Promise<boolean> => {
       return false;
     }
     // Network or other errors - assume token is valid for now
-    console.warn('Token validation network error, assuming valid:', error.message);
+    console.warn('Token validation network error, assuming valid:', error instanceof Error ? error.message : 'Unknown error');
     return true;
   }
 };

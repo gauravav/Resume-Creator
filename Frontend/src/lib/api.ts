@@ -158,9 +158,9 @@ export const resumeApi = {
     } catch (error) {
       console.error('=== FRONTEND PARSE ERROR ===');
       console.error('Error:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
+      if ((error as {response?: {status?: number; data?: unknown}})?.response) {
+        console.error('Response status:', (error as {response?: {status?: number; data?: unknown}}).response?.status);
+        console.error('Response data:', (error as {response?: {status?: number; data?: unknown}}).response?.data);
       }
       throw error;
     }
@@ -212,9 +212,9 @@ export const resumeApi = {
       console.error('API saveParsed error:', {
         error,
         message: error instanceof Error ? error.message : 'Unknown error',
-        status: error?.response?.status,
-        statusText: error?.response?.statusText,
-        data: error?.response?.data
+        status: (error as {response?: {status?: number; statusText?: string; data?: unknown}})?.response?.status,
+        statusText: (error as {response?: {status?: number; statusText?: string; data?: unknown}})?.response?.statusText,
+        data: (error as {response?: {status?: number; statusText?: string; data?: unknown}})?.response?.data
       });
       throw error;
     }

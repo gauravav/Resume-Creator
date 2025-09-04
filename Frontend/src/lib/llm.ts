@@ -117,7 +117,7 @@ export async function saveResumeWithParsedData(
   parsedData: ParsedResume
 ): Promise<{success: boolean; message: string}> {
   try {
-    const response = await resumeApi.uploadParsed(file, parsedData);
+    const response = await resumeApi.saveParsed(parsedData, file.name);
     return response;
   } catch (error) {
     console.error('Resume save error:', error);

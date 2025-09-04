@@ -20,6 +20,23 @@ import {
 import { ResumeData } from '@/types/resume';
 import ResponsibilityRewriteDialog from './ResponsibilityRewriteDialog';
 
+interface DetailedChanges {
+  personalInfo?: {
+    firstName?: boolean;
+    lastName?: boolean;
+  };
+  experience?: Array<{
+    responsibilities?: boolean[];
+  }>;
+  projects?: Array<{
+    descriptions?: boolean[];
+  }>;
+  technologies?: {
+    languages?: boolean;
+    backend?: boolean;
+  };
+}
+
 // Magic glow wrapper for individual fields that have changed
 const MagicalField = ({ isChanged, children, intensity = 'normal' }: { 
   isChanged: boolean; 
@@ -120,7 +137,7 @@ interface CustomResumeFormProps {
   experienceChanged?: boolean;
   projectsChanged?: boolean;
   technologiesChanged?: boolean;
-  detailedChanges?: Record<string, unknown>; // Detailed change information for individual fields
+  detailedChanges?: DetailedChanges; // Detailed change information for individual fields
 }
 
 export default function CustomResumeForm({ 
@@ -132,7 +149,7 @@ export default function CustomResumeForm({
   experienceChanged = false,
   projectsChanged = false,
   technologiesChanged = false,
-  detailedChanges = null
+  detailedChanges
 }: CustomResumeFormProps) {
   const [data, setData] = useState<ResumeData>(initialData);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -572,7 +589,7 @@ export default function CustomResumeForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                <MagicalField isChanged={detailedChanges?.personalInfo?.firstName} intensity="subtle">
+                <MagicalField isChanged={detailedChanges?.personalInfo?.firstName ?? false} intensity="subtle">
                   <input
                     type="text"
                     value={data.personalInfo.firstName}
@@ -583,7 +600,7 @@ export default function CustomResumeForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                <MagicalField isChanged={detailedChanges?.personalInfo?.lastName} intensity="subtle">
+                <MagicalField isChanged={detailedChanges?.personalInfo?.lastName ?? false} intensity="subtle">
                   <input
                     type="text"
                     value={data.personalInfo.lastName}
@@ -838,7 +855,7 @@ export default function CustomResumeForm({
                           type="number"
                           placeholder="Year"
                           value={edu.duration.start.year || ''}
-                          onChange={(e) => updateEducationDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateEducationDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -857,7 +874,7 @@ export default function CustomResumeForm({
                           type="number"
                           placeholder="Year"
                           value={edu.duration.end.year || ''}
-                          onChange={(e) => updateEducationDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateEducationDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -1019,7 +1036,7 @@ export default function CustomResumeForm({
                           type="number"
                           placeholder="Year"
                           value={exp.duration.start.year || ''}
-                          onChange={(e) => updateExperienceDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateExperienceDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -1038,7 +1055,7 @@ export default function CustomResumeForm({
                           type="number"
                           placeholder="Year"
                           value={exp.duration.end.year || ''}
-                          onChange={(e) => updateExperienceDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => updateExperienceDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : '')}
                           className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
@@ -1064,7 +1081,7 @@ export default function CustomResumeForm({
                       <div key={respIndex} className="flex items-start space-x-2">
                         <div className="flex-1">
                           <MagicalField 
-                            isChanged={detailedChanges?.experience?.[index]?.responsibilities?.[respIndex]} 
+                            isChanged={detailedChanges?.experience?.[index]?.responsibilities?.[respIndex] ?? false} 
                             intensity="strong"
                           >
                             <textarea
@@ -1179,7 +1196,7 @@ export default function CustomResumeForm({
                         <div key={descIndex} className="flex items-start space-x-2">
                           <div className="flex-1">
                             <MagicalField 
-                              isChanged={detailedChanges?.projects?.[index]?.descriptions?.[descIndex]} 
+                              isChanged={detailedChanges?.projects?.[index]?.descriptions?.[descIndex] ?? false} 
                               intensity="strong"
                             >
                               <textarea
@@ -1255,7 +1272,7 @@ export default function CustomResumeForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Programming Languages</label>
-                <MagicalField isChanged={detailedChanges?.technologies?.languages} intensity="subtle">
+                <MagicalField isChanged={detailedChanges?.technologies?.languages ?? false} intensity="subtle">
                   <input
                     type="text"
                     value={arrayToString(data.technologies.languages)}
@@ -1267,7 +1284,7 @@ export default function CustomResumeForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Backend Technologies</label>
-                <MagicalField isChanged={detailedChanges?.technologies?.backend} intensity="subtle">
+                <MagicalField isChanged={detailedChanges?.technologies?.backend ?? false} intensity="subtle">
                   <input
                     type="text"
                     value={arrayToString(data.technologies.backend)}
