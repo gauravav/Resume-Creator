@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { 
   User, 
-  MapPin, 
   Mail, 
   Phone, 
   Globe, 
@@ -16,7 +15,6 @@ import {
   Plus,
   Trash2,
   Save,
-  X,
   Wand2,
   ChevronDown
 } from 'lucide-react';
@@ -114,7 +112,7 @@ export default function EditableResumeForm({
     setExpandedSections(newExpanded);
   };
 
-  const updatePersonalInfo = (field: string, value: any) => {
+  const updatePersonalInfo = (field: string, value: string) => {
     setData(prev => ({
       ...prev,
       personalInfo: {
@@ -124,7 +122,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updatePersonalLocation = (field: string, value: any) => {
+  const updatePersonalLocation = (field: string, value: string | boolean) => {
     setData(prev => ({
       ...prev,
       personalInfo: {
@@ -166,7 +164,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updateEducation = (index: number, field: string, value: any) => {
+  const updateEducation = (index: number, field: string, value: string | string[]) => {
     setData(prev => ({
       ...prev,
       education: prev.education.map((edu, i) => 
@@ -175,7 +173,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updateEducationDuration = (index: number, period: 'start' | 'end', field: string, value: any) => {
+  const updateEducationDuration = (index: number, period: 'start' | 'end', field: string, value: string | number) => {
     setData(prev => ({
       ...prev,
       education: prev.education.map((edu, i) => 
@@ -216,7 +214,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updateExperience = (index: number, field: string, value: any) => {
+  const updateExperience = (index: number, field: string, value: string | string[]) => {
     setData(prev => ({
       ...prev,
       experience: prev.experience.map((exp, i) => 
@@ -225,7 +223,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updateExperienceLocation = (index: number, field: string, value: any) => {
+  const updateExperienceLocation = (index: number, field: string, value: string | boolean) => {
     setData(prev => ({
       ...prev,
       experience: prev.experience.map((exp, i) => 
@@ -237,7 +235,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updateExperienceDuration = (index: number, period: 'start' | 'end', field: string, value: any) => {
+  const updateExperienceDuration = (index: number, period: 'start' | 'end', field: string, value: string | number) => {
     setData(prev => ({
       ...prev,
       experience: prev.experience.map((exp, i) => 
@@ -273,7 +271,7 @@ export default function EditableResumeForm({
     }));
   };
 
-  const updateProject = (index: number, field: string, value: any) => {
+  const updateProject = (index: number, field: string, value: string | string[]) => {
     setData(prev => ({
       ...prev,
       projects: prev.projects.map((proj, i) => 
@@ -1000,7 +998,7 @@ export default function EditableResumeForm({
                     ))}
                     {exp.responsibilities.length === 0 && (
                       <div className="text-gray-500 text-sm italic py-2">
-                        No responsibilities added yet. Click "Add" to add your first responsibility.
+                        No responsibilities added yet. Click &quot;Add&quot; to add your first responsibility.
                       </div>
                     )}
                   </div>
@@ -1110,7 +1108,7 @@ export default function EditableResumeForm({
                       ))}
                       {project.description.length === 0 && (
                         <div className="text-gray-500 text-sm italic py-2">
-                          No description points added yet. Click "Add" to add your first point.
+                          No description points added yet. Click &quot;Add&quot; to add your first point.
                         </div>
                       )}
                     </div>

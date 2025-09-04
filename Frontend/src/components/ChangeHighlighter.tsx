@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ResumeData } from '@/types/resume';
 import { Sparkles } from 'lucide-react';
 
@@ -10,60 +10,9 @@ interface ChangeHighlighterProps {
   children: React.ReactNode;
 }
 
-interface ChangeIndicatorProps {
-  isChanged: boolean;
-  children: React.ReactNode;
-}
-
-function ChangeIndicator({ isChanged, children }: ChangeIndicatorProps) {
-  const [showSparkle, setShowSparkle] = useState(false);
-  
-  useEffect(() => {
-    if (isChanged) {
-      // Start sparkle animation after a brief delay
-      const timer = setTimeout(() => setShowSparkle(true), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isChanged]);
-  
-  if (!isChanged) return <>{children}</>;
-  
-  return (
-    <div className="relative group">
-      {/* Enhanced magical glow effect */}
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 via-blue-500 to-indigo-600 rounded-lg blur opacity-75 animate-pulse group-hover:opacity-100 transition duration-1000"></div>
-      <div className="relative bg-white rounded-lg">
-        {children}
-      </div>
-      
-      {/* Left side magical indicator */}
-      <div className="absolute -left-3 top-0 bottom-0 w-2 bg-gradient-to-b from-purple-500 via-blue-500 to-indigo-500 rounded-full animate-pulse shadow-lg">
-        <div className="w-full h-full bg-gradient-to-b from-purple-300 via-blue-300 to-indigo-300 rounded-full animate-ping opacity-50"></div>
-      </div>
-      
-      {/* Top-right sparkle indicator */}
-      <div className="absolute -right-2 -top-2 z-10">
-        <div className="relative">
-          <Sparkles className="w-5 h-5 text-purple-500 animate-bounce" />
-          <div className="absolute inset-0 w-5 h-5 bg-purple-400 rounded-full animate-ping opacity-30"></div>
-        </div>
-      </div>
-      
-      {/* Magical sparkle particles */}
-      {showSparkle && (
-        <>
-          <div className="absolute top-2 right-4 w-1 h-1 bg-yellow-400 rounded-full animate-ping" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-          <div className="absolute top-6 right-8 w-1 h-1 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '0.5s', animationDuration: '2s' }}></div>
-          <div className="absolute bottom-4 right-6 w-1 h-1 bg-purple-400 rounded-full animate-ping" style={{ animationDelay: '1s', animationDuration: '2s' }}></div>
-          <div className="absolute bottom-8 right-2 w-1 h-1 bg-indigo-400 rounded-full animate-ping" style={{ animationDelay: '1.5s', animationDuration: '2s' }}></div>
-        </>
-      )}
-    </div>
-  );
-}
 
 export default function ChangeHighlighter({ originalData, modifiedData, children }: ChangeHighlighterProps) {
-  const hasChanges = (original: any, modified: any): boolean => {
+  const hasChanges = (original: unknown, modified: unknown): boolean => {
     if (typeof original !== typeof modified) return true;
     if (original === null || modified === null) return original !== modified;
     
@@ -74,11 +23,11 @@ export default function ChangeHighlighter({ originalData, modifiedData, children
     
     if (typeof original === 'object') {
       const originalKeys = Object.keys(original);
-      const modifiedKeys = Object.keys(modified);
+      const modifiedKeys = Object.keys(modified || {});
       
       if (originalKeys.length !== modifiedKeys.length) return true;
       
-      return originalKeys.some(key => hasChanges(original[key], modified[key]));
+      return originalKeys.some(key => hasChanges((original as Record<string, unknown>)[key], (modified as Record<string, unknown>)[key]));
     }
     
     return original !== modified;
@@ -199,8 +148,8 @@ export default function ChangeHighlighter({ originalData, modifiedData, children
     if (!React.isValidElement(child)) return child;
     
     // Pass detailed changes to child components
-    return React.cloneElement(child, {
-      ...child.props,
+    return React.cloneElement(child as React.ReactElement<Record<string, unknown>>, {
+      ...(child.props || {}),
       summaryChanged,
       personalInfoChanged,
       educationChanged,

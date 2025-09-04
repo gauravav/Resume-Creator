@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { 
   X,
   AlertCircle,
-  CheckCircle,
   FileText,
   User,
   Briefcase,
@@ -282,7 +281,7 @@ export default function SaveCustomResumeDialog({
                 <div>
                   <h5 className="text-sm font-medium text-blue-800">No Changes Detected</h5>
                   <p className="text-sm text-blue-700 mt-1">
-                    The AI customization didn't make any changes to your original resume.
+                    The AI customization didn&apos;t make any changes to your original resume.
                   </p>
                 </div>
               </div>

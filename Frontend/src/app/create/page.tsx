@@ -8,8 +8,6 @@ import {
   FileText, 
   Check,
   ChevronRight,
-  Briefcase,
-  Building,
   Loader2,
   Sparkles
 } from 'lucide-react';
@@ -34,7 +32,6 @@ export default function CreateResumePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const [customizedResumeData, setCustomizedResumeData] = useState<ResumeData | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [customResumeName, setCustomResumeName] = useState('');
   const [originalResumeData, setOriginalResumeData] = useState<ResumeData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -154,9 +151,9 @@ export default function CreateResumePage() {
       console.error('handleSaveCustomResume error:', {
         error,
         message: error instanceof Error ? error.message : 'Unknown error',
-        response: error?.response,
-        status: error?.response?.status,
-        data: error?.response?.data
+        response: (error as {response?: unknown}).response,
+        status: (error as {response?: {status?: unknown}}).response?.status,
+        data: (error as {response?: {data?: unknown}}).response?.data
       });
       throw error; // Re-throw to let the dialog handle it
     }

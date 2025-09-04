@@ -1,7 +1,10 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { ResumeData } from '@/types/resume';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3200';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? process.env.NEXT_PUBLIC_API_URL_PROD || 'http://143.198.11.73:3200'
+  : process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -52,10 +55,20 @@ export interface Resume {
   isBaseResume: boolean;
 }
 
-interface MinioObject {
-  name: string;
-  size: number;
-  lastModified: string;
+interface ResumeResponse {
+  id: number;
+  fileName?: string;
+  resumeFileName: string;
+  jsonFileName: string;
+  originalName: string;
+  uploadDate: string;
+  size: string;
+  isBaseResume?: boolean;
+}
+
+interface UpdatePayload {
+  parsedData: ResumeData;
+  resumeName?: string;
 }
 
 export const authApi = {
@@ -85,7 +98,7 @@ export const resumeApi = {
   getAll: async (): Promise<Resume[]> => {
     const response = await api.get('/api/resumes');
     const resumes = response.data.resumes || [];
-    return resumes.map((resume: any) => ({
+    return resumes.map((resume: ResumeResponse) => ({
       id: resume.id,
       fileName: resume.fileName || resume.resumeFileName,
       resumeFileName: resume.resumeFileName,
@@ -159,8 +172,8 @@ export const resumeApi = {
     return response.data.parsedData;
   },
 
-  updateParsedData: async (resumeId: number, parsedData: any, resumeName?: string) => {
-    const payload: any = { parsedData };
+  updateParsedData: async (resumeId: number, parsedData: ResumeData, resumeName?: string) => {
+    const payload: UpdatePayload = { parsedData };
     if (resumeName) {
       payload.resumeName = resumeName;
     }
@@ -169,7 +182,7 @@ export const resumeApi = {
     return response.data;
   },
 
-  saveParsed: async (parsedData: any, resumeName: string) => {
+  saveParsed: async (parsedData: ResumeData, resumeName: string) => {
     console.log('API saveParsed called with:', {
       resumeName,
       parsedDataType: typeof parsedData,

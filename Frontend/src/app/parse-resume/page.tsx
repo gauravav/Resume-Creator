@@ -18,7 +18,6 @@ import {
   Edit3,
   X
 } from 'lucide-react';
-import { isAuthenticatedWithValidation } from '@/lib/auth';
 import { resumeApi } from '@/lib/api';
 import { parseResumeWithLLM, ParsedResume } from '@/lib/llm';
 import Layout from '@/components/Layout';

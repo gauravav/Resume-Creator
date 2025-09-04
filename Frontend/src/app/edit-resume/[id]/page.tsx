@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
   FileText, 
   Loader2,
-  Save,
   AlertCircle
 } from 'lucide-react';
 import { isAuthenticatedWithValidation } from '@/lib/auth';
@@ -18,7 +17,6 @@ import Layout from '@/components/Layout';
 
 export default function EditResumePage() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
-  const [originalName, setOriginalName] = useState('');
   const [resumeName, setResumeName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,21 +25,7 @@ export default function EditResumePage() {
   const params = useParams();
   const resumeId = params.id as string;
 
-  useEffect(() => {
-    const validateAndLoad = async () => {
-      const isValid = await isAuthenticatedWithValidation();
-      if (!isValid) {
-        router.push('/login');
-        return;
-      }
-
-      fetchResumeData();
-    };
-
-    validateAndLoad();
-  }, [router, resumeId]);
-
-  const fetchResumeData = async () => {
+  const fetchResumeData = useCallback(async () => {
     try {
       setError('');
       setIsLoading(true);
@@ -55,7 +39,6 @@ export default function EditResumePage() {
         return;
       }
 
-      setOriginalName(resume.originalName);
       setResumeName(resume.originalName.replace(/\.(pdf|doc|docx)$/i, ''));
 
       // Then get parsed JSON data
@@ -67,7 +50,21 @@ export default function EditResumePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [resumeId]);
+
+  useEffect(() => {
+    const validateAndLoad = async () => {
+      const isValid = await isAuthenticatedWithValidation();
+      if (!isValid) {
+        router.push('/login');
+        return;
+      }
+
+      fetchResumeData();
+    };
+
+    validateAndLoad();
+  }, [router, resumeId, fetchResumeData]);
 
   const handleSave = async (updatedData: ResumeData) => {
     setIsSaving(true);

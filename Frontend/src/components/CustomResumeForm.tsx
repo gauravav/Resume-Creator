@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { 
   User, 
-  MapPin, 
   Mail, 
   Phone, 
   Globe, 
@@ -15,7 +14,6 @@ import {
   FolderOpen,
   Plus,
   Trash2,
-  X,
   Wand2,
   ChevronDown
 } from 'lucide-react';
@@ -72,8 +70,8 @@ const MagicalField = ({ isChanged, children, intensity = 'normal' }: {
         
         {/* Apply magical styling to input/textarea elements */}
         <div className="magical-field">
-          {React.cloneElement(children as React.ReactElement, {
-            className: `${(children as React.ReactElement).props.className} ${
+          {React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+            className: `${(children as React.ReactElement<{className?: string}>).props.className || ''} ${
               intensity === 'strong' 
                 ? 'border-purple-500 ring-2 ring-purple-500 ring-opacity-40 focus:ring-purple-500 shadow-lg shadow-purple-200' 
                 : intensity === 'normal' 
@@ -81,7 +79,7 @@ const MagicalField = ({ isChanged, children, intensity = 'normal' }: {
                   : 'border-purple-300 ring-1 ring-purple-300 ring-opacity-20 focus:ring-purple-300 shadow-sm shadow-purple-50'
             }`,
             style: {
-              ...(children as React.ReactElement).props.style,
+              ...((children as React.ReactElement<{style?: React.CSSProperties}>).props.style || {}),
               boxShadow: intensity === 'strong' 
                 ? '0 0 20px rgba(139, 92, 246, 0.3), inset 0 1px 3px rgba(139, 92, 246, 0.1)'
                 : intensity === 'normal'
@@ -122,7 +120,7 @@ interface CustomResumeFormProps {
   experienceChanged?: boolean;
   projectsChanged?: boolean;
   technologiesChanged?: boolean;
-  detailedChanges?: any; // Detailed change information for individual fields
+  detailedChanges?: Record<string, unknown>; // Detailed change information for individual fields
 }
 
 export default function CustomResumeForm({ 
@@ -181,7 +179,7 @@ export default function CustomResumeForm({
     setExpandedSections(newExpanded);
   };
 
-  const updatePersonalInfo = (field: string, value: any) => {
+  const updatePersonalInfo = (field: string, value: string) => {
     const newData = {
       ...data,
       personalInfo: {
@@ -192,7 +190,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updatePersonalLocation = (field: string, value: any) => {
+  const updatePersonalLocation = (field: string, value: string | boolean) => {
     const newData = {
       ...data,
       personalInfo: {
@@ -237,7 +235,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updateEducation = (index: number, field: string, value: any) => {
+  const updateEducation = (index: number, field: string, value: string | string[]) => {
     const newData = {
       ...data,
       education: data.education.map((edu, i) => 
@@ -247,7 +245,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updateEducationDuration = (index: number, period: 'start' | 'end', field: string, value: any) => {
+  const updateEducationDuration = (index: number, period: 'start' | 'end', field: string, value: string | number) => {
     const newData = {
       ...data,
       education: data.education.map((edu, i) => 
@@ -291,7 +289,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updateExperience = (index: number, field: string, value: any) => {
+  const updateExperience = (index: number, field: string, value: string | string[]) => {
     const newData = {
       ...data,
       experience: data.experience.map((exp, i) => 
@@ -301,7 +299,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updateExperienceLocation = (index: number, field: string, value: any) => {
+  const updateExperienceLocation = (index: number, field: string, value: string | boolean) => {
     const newData = {
       ...data,
       experience: data.experience.map((exp, i) => 
@@ -314,7 +312,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updateExperienceDuration = (index: number, period: 'start' | 'end', field: string, value: any) => {
+  const updateExperienceDuration = (index: number, period: 'start' | 'end', field: string, value: string | number) => {
     const newData = {
       ...data,
       experience: data.experience.map((exp, i) => 
@@ -353,7 +351,7 @@ export default function CustomResumeForm({
     updateData(newData);
   };
 
-  const updateProject = (index: number, field: string, value: any) => {
+  const updateProject = (index: number, field: string, value: string | string[]) => {
     const newData = {
       ...data,
       projects: data.projects.map((proj, i) => 
@@ -1099,7 +1097,7 @@ export default function CustomResumeForm({
                     ))}
                     {exp.responsibilities.length === 0 && (
                       <div className="text-gray-500 text-sm italic py-2">
-                        No responsibilities added yet. Click "Add" to add your first responsibility.
+                        No responsibilities added yet. Click &quot;Add&quot; to add your first responsibility.
                       </div>
                     )}
                   </div>
@@ -1214,7 +1212,7 @@ export default function CustomResumeForm({
                       ))}
                       {project.description.length === 0 && (
                         <div className="text-gray-500 text-sm italic py-2">
-                          No description points added yet. Click "Add" to add your first point.
+                          No description points added yet. Click &quot;Add&quot; to add your first point.
                         </div>
                       )}
                     </div>

@@ -52,9 +52,9 @@ export const validateTokenWithServer = async (): Promise<boolean> => {
   try {
     const result = await authApi.validateToken();
     return result.valid === true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Token is invalid on server side
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if ((error as {response?: {status?: number}}).response?.status === 401 || (error as {response?: {status?: number}}).response?.status === 403) {
       removeToken();
       return false;
     }
