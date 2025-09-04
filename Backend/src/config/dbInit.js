@@ -10,13 +10,13 @@ const initializeDatabase = async () => {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('users', 'parsed_resumes', 'job_descriptions', 'generated_resumes');
+      AND table_name IN ('users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage');
     `;
     
     const result = await pool.query(checkTablesQuery);
     const existingTables = result.rows.map(row => row.table_name);
     
-    const requiredTables = ['users', 'parsed_resumes', 'job_descriptions', 'generated_resumes'];
+    const requiredTables = ['users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage'];
     const missingTables = requiredTables.filter(table => !existingTables.includes(table));
     
     if (missingTables.length === 0) {
@@ -121,6 +121,25 @@ const initializeDatabase = async () => {
       
       await pool.query('CREATE INDEX idx_generated_resumes_user_id ON generated_resumes(user_id);');
       logger.info('✅ Created generated_resumes table');
+    }
+    
+    // Create token_usage table
+    if (missingTables.includes('token_usage')) {
+      await pool.query(`
+        CREATE TABLE token_usage (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          operation_type VARCHAR(100) NOT NULL,
+          tokens_used INTEGER NOT NULL DEFAULT 0,
+          metadata JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      
+      await pool.query('CREATE INDEX idx_token_usage_user_id ON token_usage(user_id);');
+      await pool.query('CREATE INDEX idx_token_usage_operation ON token_usage(operation_type);');
+      await pool.query('CREATE INDEX idx_token_usage_created_at ON token_usage(created_at);');
+      logger.info('✅ Created token_usage table');
     }
     
     logger.info('🎉 Database initialization completed successfully');

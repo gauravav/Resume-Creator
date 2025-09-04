@@ -2,6 +2,12 @@ const axios = require('axios');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 
+// Helper function to estimate token count (rough approximation)
+const estimateTokenCount = (text) => {
+  // Rough estimate: 1 token ≈ 4 characters on average
+  return Math.ceil(text.length / 4);
+};
+
 class LLMResumeParser {
   constructor() {
     this.llmApiUrl = process.env.LLM_API_URL || 'http://localhost:1234/v1';
@@ -31,7 +37,7 @@ class LLMResumeParser {
     }
   }
 
-  async parseResumeWithLLM(resumeText) {
+  async parseResumeWithLLM(resumeText, userId = null) {
     try {
       console.log('=== LLM PARSING DEBUG ===');
       console.log('LLM API URL:', this.llmApiUrl);
@@ -69,6 +75,22 @@ class LLMResumeParser {
       console.log('LLM Studio responded with status:', response.status);
 
       const llmResponse = response.data.choices[0].message.content.trim();
+      
+      // Track token usage if userId is provided
+      if (userId && response.data.usage) {
+        const tokensUsed = response.data.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
+        try {
+          const { recordTokenUsage } = require('../controllers/tokenController');
+          await recordTokenUsage(userId, 'resume_parsing', tokensUsed, {
+            operation: 'parse_resume',
+            input_length: resumeText.length,
+            response_length: llmResponse.length
+          });
+          console.log(`✅ Recorded ${tokensUsed} tokens for resume parsing`);
+        } catch (tokenError) {
+          console.error('Failed to record token usage:', tokenError);
+        }
+      }
       
       console.log('=== LLM JSON OUTPUT ===');
       console.log('Raw LLM Response:', llmResponse);
@@ -553,7 +575,7 @@ ${resumeText}`;
     return skills;
   }
 
-  async customizeResumeForJob(resumeData, jobDescription) {
+  async customizeResumeForJob(resumeData, jobDescription, userId = null) {
     try {
       console.log('=== LLM RESUME CUSTOMIZATION DEBUG ===');
       console.log('LLM API URL:', this.llmApiUrl);
@@ -598,6 +620,22 @@ ${resumeText}`;
       console.log('LLM Studio responded with status:', response.status);
 
       const llmResponse = response.data.choices[0].message.content.trim();
+      
+      // Track token usage if userId is provided
+      if (userId && response.data.usage) {
+        const tokensUsed = response.data.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
+        try {
+          const { recordTokenUsage } = require('../controllers/tokenController');
+          await recordTokenUsage(userId, 'resume_customization', tokensUsed, {
+            operation: 'customize_resume',
+            job_description_length: jobDescription.length,
+            response_length: llmResponse.length
+          });
+          console.log(`✅ Recorded ${tokensUsed} tokens for resume customization`);
+        } catch (tokenError) {
+          console.error('Failed to record token usage:', tokenError);
+        }
+      }
       
       console.log('=== LLM CUSTOMIZATION OUTPUT ===');
       console.log('Raw LLM Response:', llmResponse.substring(0, 500) + '...');
@@ -699,7 +737,7 @@ TARGETED CUSTOMIZATION INSTRUCTIONS:
 Focus on making the summary, work experience points, and technology ordering highly relevant to this job opportunity:`;
   }
 
-  async rewriteResponsibility(originalText, userPrompt) {
+  async rewriteResponsibility(originalText, userPrompt, userId = null) {
     try {
       console.log('=== RESPONSIBILITY REWRITE DEBUG ===');
       console.log('Original text:', originalText);
@@ -746,6 +784,23 @@ Return ONLY the rewritten bullet point - no explanations or additional text.`;
       if (response.data && response.data.choices && response.data.choices[0]) {
         const rewrittenText = response.data.choices[0].message.content.trim();
         console.log('LLM rewrite response:', rewrittenText);
+        
+        // Track token usage if userId is provided
+        if (userId && response.data.usage) {
+          const tokensUsed = response.data.usage.total_tokens || estimateTokenCount(prompt + rewrittenText);
+          try {
+            const { recordTokenUsage } = require('../controllers/tokenController');
+            await recordTokenUsage(userId, 'responsibility_rewrite', tokensUsed, {
+              operation: 'rewrite_responsibility',
+              original_length: originalText.length,
+              prompt_length: userPrompt.length,
+              response_length: rewrittenText.length
+            });
+            console.log(`✅ Recorded ${tokensUsed} tokens for responsibility rewrite`);
+          } catch (tokenError) {
+            console.error('Failed to record token usage:', tokenError);
+          }
+        }
         
         // Clean up the response - remove any quotes or extra formatting
         let cleanedText = rewrittenText.replace(/^["'](.*)["']$/, '$1').trim();

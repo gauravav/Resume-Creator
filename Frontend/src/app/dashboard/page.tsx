@@ -12,9 +12,11 @@ import {
   ChevronDown,
   User,
   LogOut,
-  FileDown
+  FileDown,
+  Zap,
+  RotateCcw
 } from 'lucide-react';
-import { resumeApi, Resume, authApi } from '@/lib/api';
+import { resumeApi, Resume, authApi, tokenApi } from '@/lib/api';
 import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
 import Layout from '@/components/Layout';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -36,6 +38,8 @@ export default function DashboardPage() {
     resumeName: ''
   });
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [tokenUsage, setTokenUsage] = useState<{totalTokens: number} | null>(null);
+  const [tokenResetLoading, setTokenResetLoading] = useState(false);
   const router = useRouter();
 
   // Close user menu when clicking outside
@@ -65,6 +69,7 @@ export default function DashboardPage() {
 
         fetchUserData();
         fetchResumes();
+        fetchTokenUsage();
       } catch (error) {
         console.error('Token validation error:', error);
         setError('Authentication failed. Please login again.');
@@ -95,6 +100,32 @@ export default function DashboardPage() {
       setError('Failed to load resumes');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchTokenUsage = async () => {
+    try {
+      const response = await tokenApi.getCurrentUsage();
+      setTokenUsage(response.data);
+    } catch (error) {
+      console.error('Failed to fetch token usage:', error);
+    }
+  };
+
+  const handleResetTokens = async () => {
+    if (!confirm('Are you sure you want to reset your token count? This action cannot be undone.')) {
+      return;
+    }
+
+    setTokenResetLoading(true);
+    try {
+      await tokenApi.resetTokenCount();
+      await fetchTokenUsage(); // Refresh the usage count
+    } catch (error) {
+      console.error('Failed to reset tokens:', error);
+      setError('Failed to reset token count');
+    } finally {
+      setTokenResetLoading(false);
     }
   };
 
@@ -265,6 +296,57 @@ export default function DashboardPage() {
               </p>
             )}
           </div>
+
+        {/* Token Usage Section */}
+        {tokenUsage && (
+          <div className="bg-white rounded-lg shadow mb-8">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                  <Zap className="h-5 w-5 text-yellow-500 mr-2" />
+                  Token Usage
+                </h2>
+                <div className="flex items-center space-x-3">
+                  <Link
+                    href="/token-history"
+                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    View History
+                  </Link>
+                  <button
+                    onClick={handleResetTokens}
+                    disabled={tokenResetLoading}
+                    className="inline-flex items-center px-3 py-1 border border-red-300 rounded-md text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    title="Reset your token count to zero"
+                  >
+                    {tokenResetLoading ? (
+                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin mr-2" />
+                    ) : (
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                    )}
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <p className="text-3xl font-bold text-gray-900">
+                    {tokenUsage.totalTokens.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-500">Total tokens used</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600 mb-1">Track your API usage</p>
+                  <p className="text-xs text-gray-500">
+                    Includes resume parsing, customization, and rewriting
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Actions Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

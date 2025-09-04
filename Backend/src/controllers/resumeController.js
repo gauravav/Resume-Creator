@@ -90,7 +90,7 @@ const uploadResume = async (req, res) => {
 
       // Parse resume content with LLM
       const extractedText = await LLMResumeParser.extractText(req.file.buffer, req.file.mimetype);
-      const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText);
+      const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText, req.user.id);
       
       // Store parsed data in database (legacy format)
       const query = `
@@ -140,7 +140,7 @@ const uploadResume = async (req, res) => {
 
     // Parse resume content with LLM
     const extractedText = await LLMResumeParser.extractText(req.file.buffer, req.file.mimetype);
-    const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText);
+    const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText, req.user.id);
     
     // Upload parsed JSON to MinIO
     const jsonBuffer = Buffer.from(JSON.stringify(parsedData, null, 2));
@@ -461,7 +461,7 @@ const parseResume = async (req, res) => {
     console.log('Extracted text length:', extractedText.length);
 
     // Parse with LLM
-    const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText);
+    const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText, req.user.id);
 
     console.log('LLM parsing completed successfully');
 
@@ -530,7 +530,7 @@ const saveParsedResume = async (req, res) => {
     
     const result = await pool.query(query, [
       req.user.id, 
-      null, // No PDF file stored
+      resumeName, // Use resume name as file name since no PDF is stored
       jsonFileName, 
       resumeName, 
       jsonBuffer.length, // Size of JSON data
@@ -859,7 +859,8 @@ const customizeResumeForJob = async (req, res) => {
     // Use LLM to modify the resume for the specific job (only pass description)
     const modifiedResumeData = await LLMResumeParser.customizeResumeForJob(
       currentResumeData, 
-      jobDescription.description
+      jobDescription.description,
+      req.user.id
     );
 
     // Generate suggested custom resume name

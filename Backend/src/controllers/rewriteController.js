@@ -14,7 +14,7 @@ const rewriteResponsibility = async (req, res) => {
     });
 
     // Use the LLM to rewrite the responsibility point
-    const rewrittenText = await LLMResumeParser.rewriteResponsibility(originalText.trim(), prompt.trim());
+    const rewrittenText = await LLMResumeParser.rewriteResponsibility(originalText.trim(), prompt.trim(), req.user?.id);
     
     res.json({
       success: true,

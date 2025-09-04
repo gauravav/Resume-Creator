@@ -2,9 +2,12 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import { ResumeData } from '@/types/resume';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? process.env.NEXT_PUBLIC_API_URL_PROD || 'http://143.198.11.73:3200'
-  : process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200';
+const isLocalhost = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const API_BASE_URL = isLocalhost 
+  ? process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200'
+  : process.env.NEXT_PUBLIC_API_URL_PROD || 'http://143.198.11.73:3200';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -265,5 +268,59 @@ export const jobApi = {
   
   delete: async (jobId: string) => {
     await api.delete(`/api/jobs/${jobId}`);
+  },
+};
+
+export interface TokenUsage {
+  id: number;
+  operation_type: string;
+  tokens_used: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface TokenStats {
+  totalTokens: number;
+  operationStats: {
+    operation_type: string;
+    operation_count: string;
+    total_tokens: string;
+    avg_tokens: string;
+    last_used: string;
+  }[];
+  dailyStats: {
+    usage_date: string;
+    daily_tokens: string;
+    daily_operations: string;
+  }[];
+}
+
+export interface TokenHistory {
+  history: TokenUsage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const tokenApi = {
+  getCurrentUsage: async () => {
+    const response = await api.get('/api/tokens/usage');
+    return response.data;
+  },
+
+  getTokenHistory: async (page = 1, limit = 20) => {
+    const response = await api.get(`/api/tokens/history?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  resetTokenCount: async () => {
+    const response = await api.post('/api/tokens/reset');
+    return response.data;
+  },
+
+  getUsageStats: async (): Promise<{success: boolean; data: TokenStats}> => {
+    const response = await api.get('/api/tokens/stats');
+    return response.data;
   },
 };

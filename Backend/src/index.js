@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const resumeRoutes = require('./routes/resume');
 const jobRoutes = require('./routes/jobs');
 const rewriteRoutes = require('./routes/rewrite');
+const tokenRoutes = require('./routes/token');
 const { initializeBucket } = require('./config/minio');
 const { initializeDatabase, checkDatabaseConnection } = require('./config/dbInit');
 
@@ -18,7 +19,7 @@ const PORT = process.env.PORT || 3200;
 
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001', 'http://143.198.11.73:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -50,6 +51,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/rewrite', rewriteRoutes);
+app.use('/api/tokens', tokenRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

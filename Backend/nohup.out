@@ -11,3 +11,18 @@
   env: 'development',
   timestamp: '2025-09-03T19:45:22.296Z'
 }
+
+> resume-api-server@1.0.0 start
+> node src/index.js
+
+[INFO] 🔌 Checking database connection... {}
+[INFO] ✅ Database connection successful { timestamp: 2025-09-04T17:58:47.725Z }
+[INFO] Checking database initialization... {}
+[INFO] ✅ All required database tables exist {}
+[INFO] Server started successfully on port 3200 {
+  port: '3200',
+  env: 'development',
+  timestamp: '2025-09-04T17:58:47.798Z'
+}
+[INFO] SIGTERM received, shutting down gracefully {}
+[INFO] Process terminated {}
