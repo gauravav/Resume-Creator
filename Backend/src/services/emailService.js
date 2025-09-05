@@ -16,6 +16,16 @@ class EmailService {
       throw new Error('Email configuration incomplete. Please set ADMIN_EMAIL environment variable.');
     }
 
+    // Log configuration (without sensitive data)
+    logger.info('Initializing email service', {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      user: process.env.SMTP_USER,
+      fromEmail: process.env.SMTP_FROM_EMAIL,
+      adminEmail: process.env.ADMIN_EMAIL
+    });
+
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT) || 587,
@@ -26,8 +36,53 @@ class EmailService {
       },
       tls: {
         rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'true'
-      }
+      },
+      // Connection timeout settings
+      connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT) || 60000, // 60 seconds
+      greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT) || 30000,     // 30 seconds
+      socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT) || 60000,         // 60 seconds
+      // Connection pooling with timeout
+      pool: true,
+      maxConnections: parseInt(process.env.SMTP_MAX_CONNECTIONS) || 5,
+      maxMessages: parseInt(process.env.SMTP_MAX_MESSAGES) || 10,
+      rateDelta: parseInt(process.env.SMTP_RATE_DELTA) || 1000,
+      rateLimit: parseInt(process.env.SMTP_RATE_LIMIT) || 3
     });
+  }
+
+  async testConnection() {
+    try {
+      logger.info('Testing SMTP connection...');
+      const isConnected = await this.transporter.verify();
+      logger.info('SMTP connection test successful', { connected: isConnected });
+      return { success: true, connected: isConnected };
+    } catch (error) {
+      logger.error('SMTP connection test failed', {
+        error: error.message,
+        code: error.code,
+        command: error.command
+      });
+      
+      if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+        return { 
+          success: false, 
+          error: 'Network connectivity issue. SMTP ports may be blocked.',
+          suggestion: 'Check firewall settings or contact network administrator.'
+        };
+      } else if (error.code === 'EAUTH') {
+        return { 
+          success: false, 
+          error: 'Authentication failed. Check SMTP credentials.',
+          suggestion: 'Verify SMTP_USER and SMTP_PASS are correct.'
+        };
+      } else {
+        return { 
+          success: false, 
+          error: error.message,
+          suggestion: 'Check SMTP configuration settings.'
+        };
+      }
+    }
   }
 
   async sendVerificationEmail(email, verificationToken, firstName) {
@@ -94,9 +149,23 @@ class EmailService {
     } catch (error) {
       logger.error('Failed to send verification email', {
         to: email,
-        error: error.message
+        error: error.message,
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        responseCode: error.responseCode
       });
-      throw new Error('Failed to send verification email');
+      
+      // Provide more specific error messages
+      if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+        throw new Error('Unable to connect to email server. Please check network connectivity or try again later.');
+      } else if (error.code === 'EAUTH') {
+        throw new Error('Email authentication failed. Please check SMTP credentials.');
+      } else if (error.code === 'EMESSAGE') {
+        throw new Error('Invalid email message format.');
+      } else {
+        throw new Error(`Failed to send verification email: ${error.message}`);
+      }
     }
   }
 
