@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, User, UserPlus } from 'lucide-react';
 import { authApi } from '@/lib/api';
-import { setToken } from '@/lib/auth';
 import Layout from '@/components/Layout';
 import { useToast } from '@/components/ToastContainer';
 import PasswordRequirements from '@/components/PasswordRequirements';
@@ -53,18 +52,17 @@ export default function RegisterPage() {
 
     try {
       const response = await authApi.register(data);
-      setToken(response.token);
       
       showToast({
         type: 'success',
-        message: 'Account created successfully! Welcome to Resume Creator.',
-        duration: 4000
+        message: response.message || 'Registration successful! Please check your email to verify your account.',
+        duration: 8000
       });
       
-      // Small delay to show the toast before redirecting
+      // Small delay to show the toast before redirecting to login
       setTimeout(() => {
-        router.push('/dashboard');
-      }, 1000);
+        router.push('/login');
+      }, 2000);
     } catch (err) {
       console.error('Registration error:', err);
       const error = err as {response?: {data?: {error?: string, message?: string}}};

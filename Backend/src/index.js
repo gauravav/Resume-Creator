@@ -11,8 +11,10 @@ const resumeRoutes = require('./routes/resume');
 const jobRoutes = require('./routes/jobs');
 const rewriteRoutes = require('./routes/rewrite');
 const tokenRoutes = require('./routes/token');
+const adminRoutes = require('./routes/admin');
 const { initializeBucket } = require('./config/minio');
 const { initializeDatabase, checkDatabaseConnection } = require('./config/dbInit');
+const emailService = require('./services/emailService');
 
 const app = express();
 const PORT = process.env.PORT || 3200;
@@ -52,6 +54,7 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/rewrite', rewriteRoutes);
 app.use('/api/tokens', tokenRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -75,12 +78,28 @@ const startServer = async () => {
     // Then initialize MinIO
     await initializeBucket();
     
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, async () => {
       logger.info(`Server started successfully on port ${PORT}`, {
         port: PORT,
         env: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
       });
+
+      // Send startup notification email
+      try {
+        const result = await emailService.sendServerStartupNotification(PORT, process.env.NODE_ENV);
+        if (result.success) {
+          logger.info('✅ Server startup notification email sent successfully');
+        } else {
+          logger.warn('⚠️ Server startup notification email failed to send', {
+            error: result.error
+          });
+        }
+      } catch (error) {
+        logger.warn('⚠️ Server startup notification error (non-critical)', {
+          error: error.message
+        });
+      }
     });
 
     // Graceful shutdown handling

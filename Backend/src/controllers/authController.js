@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { registerSchema, loginSchema } = require('../utils/validation');
 const logger = require('../utils/logger');
 const ErrorHandler = require('../utils/errorHandler');
+const emailService = require('../services/emailService');
 
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' });
@@ -31,28 +32,41 @@ const register = ErrorHandler.asyncHandler(async (req, res) => {
     }
 
     const user = await User.createUser(email, password, firstName, lastName);
-    const token = generateToken(user.id);
+    const isSuperAdmin = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
+    
+    if (!isSuperAdmin) {
+      // Send verification email for regular users only
+      await emailService.sendVerificationEmail(email, user.email_verification_token, firstName);
+    }
 
-    logger.info('User registered successfully', {
+    logger.info(isSuperAdmin ? 'Super admin registered successfully' : 'User registered successfully, verification email sent', {
       userId: user.id,
       email: user.email,
+      isSuperAdmin,
       ip: req.ip
     });
 
     logger.authEvent('REGISTRATION_SUCCESS', user.id, {
       email: user.email,
+      isSuperAdmin,
       ip: req.ip
     });
 
+    const message = isSuperAdmin 
+      ? 'Super admin registration successful! You can now log in immediately.'
+      : 'Registration successful! Please check your email to verify your account.';
+
     res.status(201).json({
-      message: 'User registered successfully',
+      message,
       user: {
         id: user.id,
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
-      },
-      token,
+        accountStatus: user.account_status,
+        emailVerified: user.email_verified || false,
+        adminApproved: user.admin_approved || false
+      }
     });
   } catch (dbError) {
     // Handle database-specific errors
@@ -113,16 +127,49 @@ const login = ErrorHandler.asyncHandler(async (req, res) => {
       throw ErrorHandler.createError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
     }
 
+    const isSuperAdmin = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
+
+    // Skip verification and approval checks for super admin
+    if (!isSuperAdmin) {
+      // Check email verification
+      if (!user.email_verified) {
+        logger.security('Login attempt with unverified email', {
+          userId: user.id,
+          email,
+          ip: req.ip
+        });
+        throw ErrorHandler.createError('Please verify your email address before logging in', 401, 'EMAIL_NOT_VERIFIED');
+      }
+
+      // Check admin approval
+      if (!user.admin_approved) {
+        logger.security('Login attempt without admin approval', {
+          userId: user.id,
+          email,
+          ip: req.ip,
+          accountStatus: user.account_status
+        });
+        
+        if (user.account_status === 'rejected') {
+          throw ErrorHandler.createError('Your account application has been rejected', 401, 'ACCOUNT_REJECTED');
+        }
+        
+        throw ErrorHandler.createError('Your account is pending admin approval', 401, 'PENDING_APPROVAL');
+      }
+    }
+
     const token = generateToken(user.id);
 
-    logger.info('User login successful', {
+    logger.info(isSuperAdmin ? 'Super admin login successful' : 'User login successful', {
       userId: user.id,
       email: user.email,
+      isSuperAdmin,
       ip: req.ip
     });
 
     logger.authEvent('LOGIN_SUCCESS', user.id, {
       email: user.email,
+      isSuperAdmin,
       ip: req.ip
     });
 
@@ -133,6 +180,7 @@ const login = ErrorHandler.asyncHandler(async (req, res) => {
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
+        isAdmin: isSuperAdmin,
       },
       token,
     });
@@ -160,12 +208,14 @@ const login = ErrorHandler.asyncHandler(async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const user = req.user;
+    const isAdmin = user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
     res.json({
       user: {
         id: user.id,
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
+        isAdmin: isAdmin,
       },
     });
   } catch (error) {
@@ -177,6 +227,7 @@ const getMe = async (req, res) => {
 const validateToken = async (req, res) => {
   try {
     // If we reach here, the token is valid (middleware passed)
+    const isAdmin = req.user.email.toLowerCase() === 'avulagaurav@gmail.com';
     res.json({
       valid: true,
       user: {
@@ -184,6 +235,7 @@ const validateToken = async (req, res) => {
         email: req.user.email,
         firstName: req.user.first_name,
         lastName: req.user.last_name,
+        isAdmin: isAdmin,
       }
     });
   } catch (error) {
@@ -192,9 +244,69 @@ const validateToken = async (req, res) => {
   }
 };
 
+const verifyEmail = ErrorHandler.asyncHandler(async (req, res) => {
+  const { token } = req.query;
+  
+  if (!token) {
+    throw ErrorHandler.invalidInput('Verification token is required');
+  }
+
+  try {
+    const user = await User.findByVerificationToken(token);
+    if (!user) {
+      logger.security('Invalid or expired verification token', {
+        token,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('Invalid or expired verification token', 400, 'INVALID_TOKEN');
+    }
+
+    const verifiedUser = await User.verifyEmail(user.id);
+    
+    // Send admin notification
+    await emailService.sendAdminNotification(
+      verifiedUser.email, 
+      verifiedUser.first_name, 
+      verifiedUser.last_name, 
+      verifiedUser.id
+    );
+
+    logger.info('Email verified successfully', {
+      userId: verifiedUser.id,
+      email: verifiedUser.email,
+      ip: req.ip
+    });
+
+    logger.authEvent('EMAIL_VERIFICATION_SUCCESS', verifiedUser.id, {
+      email: verifiedUser.email,
+      ip: req.ip
+    });
+
+    res.json({
+      message: 'Email verified successfully! Your account is now pending admin approval.',
+      user: {
+        id: verifiedUser.id,
+        email: verifiedUser.email,
+        firstName: verifiedUser.first_name,
+        lastName: verifiedUser.last_name,
+        emailVerified: verifiedUser.email_verified,
+        accountStatus: verifiedUser.account_status
+      }
+    });
+  } catch (error) {
+    logger.error('Email verification failed', {
+      token,
+      error: error.message,
+      ip: req.ip
+    });
+    throw error;
+  }
+});
+
 module.exports = {
   register,
   login,
   getMe,
   validateToken,
+  verifyEmail,
 };

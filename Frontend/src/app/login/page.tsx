@@ -52,20 +52,36 @@ export default function LoginPage() {
       }, 500);
     } catch (err) {
       console.error('Login error:', err);
-      const error = err as {response?: {data?: {error?: string, message?: string}}};
+      const error = err as {response?: {data?: {error?: string, message?: string, code?: string}, status?: number}};
       
       let errorMessage = 'Login failed. Please try again.';
+      let toastType: 'error' | 'warning' = 'error';
+      let duration = 6000;
       
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+        
+        // Handle specific error types with enhanced messaging
+        if (error.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+          errorMessage = '📧 Please verify your email address before logging in. Check your inbox for the verification link.';
+          toastType = 'warning';
+          duration = 10000;
+        } else if (error.response?.data?.code === 'PENDING_APPROVAL') {
+          errorMessage = '⏳ Your account is pending admin approval. You will receive an email once approved.';
+          toastType = 'warning';
+          duration = 15000;
+        } else if (error.response?.data?.code === 'ACCOUNT_REJECTED') {
+          errorMessage = '❌ Your account application has been rejected. Please contact support if you believe this is an error.';
+          duration = 10000;
+        }
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       }
       
       showToast({
-        type: 'error',
+        type: toastType,
         message: errorMessage,
-        duration: 6000
+        duration: duration
       });
     } finally {
       setIsLoading(false);

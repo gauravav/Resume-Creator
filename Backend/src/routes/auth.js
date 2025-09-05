@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login, getMe, validateToken } = require('../controllers/authController');
+const { register, login, getMe, validateToken, verifyEmail } = require('../controllers/authController');
 const { authenticateToken } = require('../middleware/auth');
 const RateLimiter = require('../middleware/rateLimiter');
 
@@ -11,6 +11,7 @@ const authLimiter = RateLimiter.createAuthLimiter();
 router.post('/register', authLimiter, register);
 router.post('/signup', authLimiter, register);
 router.post('/login', authLimiter, login);
+router.get('/verify-email', verifyEmail);
 router.get('/me', authenticateToken, getMe);
 router.get('/validate', authenticateToken, validateToken);
 

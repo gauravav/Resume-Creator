@@ -17,6 +17,27 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
+    // Skip verification checks for admin user
+    const isAdminUser = user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
+    
+    if (!isAdminUser) {
+      // Check email verification for non-admin users
+      if (!user.email_verified) {
+        return res.status(401).json({ 
+          error: 'Email not verified',
+          code: 'EMAIL_NOT_VERIFIED'
+        });
+      }
+
+      // Check admin approval for non-admin users  
+      if (!user.admin_approved) {
+        return res.status(401).json({ 
+          error: 'Account pending approval',
+          code: 'PENDING_APPROVAL'
+        });
+      }
+    }
+
     req.user = user;
     next();
   } catch (error) {

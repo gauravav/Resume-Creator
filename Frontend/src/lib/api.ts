@@ -27,7 +27,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to login if it's an invalid/expired token, not login failures
+    if (error.response?.status === 401 && 
+        !error.config?.url?.includes('/api/auth/login') &&
+        !error.config?.url?.includes('/api/auth/register')) {
       Cookies.remove('token');
       window.location.href = '/login';
     }
@@ -92,6 +95,11 @@ export const authApi = {
   
   validateToken: async () => {
     const response = await api.get('/api/auth/validate');
+    return response.data;
+  },
+  
+  verifyEmail: async (token: string) => {
+    const response = await api.get(`/api/auth/verify-email?token=${token}`);
     return response.data;
   },
 };

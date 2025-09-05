@@ -10,13 +10,13 @@ const initializeDatabase = async () => {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage');
+      AND table_name IN ('users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage', 'admin_actions');
     `;
     
     const result = await pool.query(checkTablesQuery);
     const existingTables = result.rows.map(row => row.table_name);
     
-    const requiredTables = ['users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage'];
+    const requiredTables = ['users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage', 'admin_actions'];
     const missingTables = requiredTables.filter(table => !existingTables.includes(table));
     
     if (missingTables.length === 0) {
@@ -39,12 +39,25 @@ const initializeDatabase = async () => {
           password VARCHAR(255) NOT NULL,
           first_name VARCHAR(100) NOT NULL,
           last_name VARCHAR(100) NOT NULL,
+          email_verified BOOLEAN DEFAULT FALSE,
+          email_verification_token VARCHAR(255),
+          email_verification_expires TIMESTAMP,
+          admin_approved BOOLEAN DEFAULT FALSE,
+          approval_requested_at TIMESTAMP,
+          approved_at TIMESTAMP,
+          approved_by VARCHAR(255),
+          rejection_reason TEXT,
+          account_status VARCHAR(50) DEFAULT 'pending_verification',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
       
       await pool.query('CREATE INDEX idx_users_email ON users(email);');
+      await pool.query('CREATE INDEX idx_users_email_verification_token ON users(email_verification_token);');
+      await pool.query('CREATE INDEX idx_users_email_verified ON users(email_verified);');
+      await pool.query('CREATE INDEX idx_users_admin_approved ON users(admin_approved);');
+      await pool.query('CREATE INDEX idx_users_account_status ON users(account_status);');
       logger.info('✅ Created users table');
     }
     
@@ -140,6 +153,26 @@ const initializeDatabase = async () => {
       await pool.query('CREATE INDEX idx_token_usage_operation ON token_usage(operation_type);');
       await pool.query('CREATE INDEX idx_token_usage_created_at ON token_usage(created_at);');
       logger.info('✅ Created token_usage table');
+    }
+    
+    // Create admin_actions table
+    if (missingTables.includes('admin_actions')) {
+      await pool.query(`
+        CREATE TABLE admin_actions (
+          id SERIAL PRIMARY KEY,
+          admin_email VARCHAR(255) NOT NULL,
+          action_type VARCHAR(50) NOT NULL,
+          target_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          details JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      
+      await pool.query('CREATE INDEX idx_admin_actions_admin_email ON admin_actions(admin_email);');
+      await pool.query('CREATE INDEX idx_admin_actions_action_type ON admin_actions(action_type);');
+      await pool.query('CREATE INDEX idx_admin_actions_target_user ON admin_actions(target_user_id);');
+      await pool.query('CREATE INDEX idx_admin_actions_created_at ON admin_actions(created_at);');
+      logger.info('✅ Created admin_actions table');
     }
     
     logger.info('🎉 Database initialization completed successfully');

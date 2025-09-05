@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string} | null>(null);
+  const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string; isAdmin?: boolean} | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -265,6 +265,21 @@ export default function DashboardPage() {
                             <User className="h-4 w-4 mr-2" />
                             Account
                           </button>
+                          {user.isAdmin && (
+                            <>
+                              <hr className="border-gray-100" />
+                              <Link
+                                href="/admin"
+                                onClick={() => setUserMenuOpen(false)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
+                              >
+                                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Admin Dashboard
+                              </Link>
+                            </>
+                          )}
                           <hr className="border-gray-100" />
                           <button
                             onClick={() => {
