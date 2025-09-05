@@ -1,87 +1,52 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const logger = require('../utils/logger');
 
 class EmailService {
   constructor() {
     // Validate required environment variables
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      throw new Error('Email configuration incomplete. Please set SMTP_USER and SMTP_PASS environment variables.');
+    if (!process.env.SENDGRID_API_KEY) {
+      throw new Error('Email configuration incomplete. Please set SENDGRID_API_KEY environment variable.');
     }
     
-    if (!process.env.SMTP_FROM_EMAIL) {
-      throw new Error('Email configuration incomplete. Please set SMTP_FROM_EMAIL environment variable.');
+    if (!process.env.SENDGRID_FROM_EMAIL) {
+      throw new Error('Email configuration incomplete. Please set SENDGRID_FROM_EMAIL environment variable.');
     }
     
     if (!process.env.ADMIN_EMAIL) {
       throw new Error('Email configuration incomplete. Please set ADMIN_EMAIL environment variable.');
     }
 
-    // Log configuration (without sensitive data)
-    logger.info('Initializing email service', {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true',
-      user: process.env.SMTP_USER,
-      fromEmail: process.env.SMTP_FROM_EMAIL,
-      adminEmail: process.env.ADMIN_EMAIL
-    });
+    // Initialize SendGrid
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      },
-      tls: {
-        rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'true'
-      },
-      // Connection timeout settings
-      connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT) || 60000, // 60 seconds
-      greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT) || 30000,     // 30 seconds
-      socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT) || 60000,         // 60 seconds
-      // Connection pooling with timeout
-      pool: true,
-      maxConnections: parseInt(process.env.SMTP_MAX_CONNECTIONS) || 5,
-      maxMessages: parseInt(process.env.SMTP_MAX_MESSAGES) || 10,
-      rateDelta: parseInt(process.env.SMTP_RATE_DELTA) || 1000,
-      rateLimit: parseInt(process.env.SMTP_RATE_LIMIT) || 3
+    // Log configuration (without sensitive data)
+    logger.info('Initializing SendGrid email service', {
+      fromEmail: process.env.SENDGRID_FROM_EMAIL,
+      fromName: process.env.SENDGRID_FROM_NAME || 'Resume Builder',
+      adminEmail: process.env.ADMIN_EMAIL
     });
   }
 
   async testConnection() {
     try {
-      logger.info('Testing SMTP connection...');
-      const isConnected = await this.transporter.verify();
-      logger.info('SMTP connection test successful', { connected: isConnected });
-      return { success: true, connected: isConnected };
+      logger.info('Testing SendGrid API connection...');
+      // SendGrid doesn't have a specific test connection method like nodemailer
+      // We'll just validate that we have the API key
+      if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_API_KEY.startsWith('SG.')) {
+        throw new Error('Invalid SendGrid API key format');
+      }
+      logger.info('SendGrid API key validation successful');
+      return { success: true, connected: true };
     } catch (error) {
-      logger.error('SMTP connection test failed', {
-        error: error.message,
-        code: error.code,
-        command: error.command
+      logger.error('SendGrid API test failed', {
+        error: error.message
       });
       
-      if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
-        return { 
-          success: false, 
-          error: 'Network connectivity issue. SMTP ports may be blocked.',
-          suggestion: 'Check firewall settings or contact network administrator.'
-        };
-      } else if (error.code === 'EAUTH') {
-        return { 
-          success: false, 
-          error: 'Authentication failed. Check SMTP credentials.',
-          suggestion: 'Verify SMTP_USER and SMTP_PASS are correct.'
-        };
-      } else {
-        return { 
-          success: false, 
-          error: error.message,
-          suggestion: 'Check SMTP configuration settings.'
-        };
-      }
+      return { 
+        success: false, 
+        error: error.message,
+        suggestion: 'Check SENDGRID_API_KEY configuration.'
+      };
     }
   }
 
@@ -89,8 +54,11 @@ class EmailService {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
     
     const mailOptions = {
-      from: process.env.SMTP_FROM_EMAIL,
       to: email,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL,
+        name: process.env.SENDGRID_FROM_NAME || 'Resume Builder'
+      },
       subject: 'Verify Your Email - Resume Builder',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -140,29 +108,27 @@ class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      logger.info('Verification email sent', {
+      const info = await sgMail.send(mailOptions);
+      logger.info('Verification email sent via SendGrid', {
         to: email,
-        messageId: info.messageId
+        messageId: info[0].headers['x-message-id']
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info[0].headers['x-message-id'] };
     } catch (error) {
-      logger.error('Failed to send verification email', {
+      logger.error('Failed to send verification email via SendGrid', {
         to: email,
         error: error.message,
         code: error.code,
-        command: error.command,
-        response: error.response,
-        responseCode: error.responseCode
+        response: error.response?.body
       });
       
       // Provide more specific error messages
-      if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
-        throw new Error('Unable to connect to email server. Please check network connectivity or try again later.');
-      } else if (error.code === 'EAUTH') {
-        throw new Error('Email authentication failed. Please check SMTP credentials.');
-      } else if (error.code === 'EMESSAGE') {
-        throw new Error('Invalid email message format.');
+      if (error.code === 401) {
+        throw new Error('SendGrid authentication failed. Please check your API key.');
+      } else if (error.code === 403) {
+        throw new Error('SendGrid API access forbidden. Check your API key permissions.');
+      } else if (error.code === 413) {
+        throw new Error('Email content too large.');
       } else {
         throw new Error(`Failed to send verification email: ${error.message}`);
       }
@@ -173,8 +139,11 @@ class EmailService {
     const adminEmail = process.env.ADMIN_EMAIL;
     
     const mailOptions = {
-      from: process.env.SMTP_FROM_EMAIL,
       to: adminEmail,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL,
+        name: process.env.SENDGRID_FROM_NAME || 'Resume Builder'
+      },
       subject: 'New User Email Verified - Pending Approval',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -226,16 +195,16 @@ class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      logger.info('Admin notification sent', {
+      const info = await sgMail.send(mailOptions);
+      logger.info('Admin notification sent via SendGrid', {
         to: adminEmail,
         userId: userId,
         userEmail: userEmail,
-        messageId: info.messageId
+        messageId: info[0].headers['x-message-id']
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info[0].headers['x-message-id'] };
     } catch (error) {
-      logger.error('Failed to send admin notification', {
+      logger.error('Failed to send admin notification via SendGrid', {
         to: adminEmail,
         userId: userId,
         error: error.message
@@ -248,8 +217,11 @@ class EmailService {
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
     
     const mailOptions = {
-      from: process.env.SMTP_FROM_EMAIL,
       to: email,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL,
+        name: process.env.SENDGRID_FROM_NAME || 'Resume Builder'
+      },
       subject: 'Account Approved - Welcome to Resume Builder!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -294,14 +266,14 @@ class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      logger.info('Approval email sent', {
+      const info = await sgMail.send(mailOptions);
+      logger.info('Approval email sent via SendGrid', {
         to: email,
-        messageId: info.messageId
+        messageId: info[0].headers['x-message-id']
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info[0].headers['x-message-id'] };
     } catch (error) {
-      logger.error('Failed to send approval email', {
+      logger.error('Failed to send approval email via SendGrid', {
         to: email,
         error: error.message
       });
@@ -311,8 +283,11 @@ class EmailService {
 
   async sendRejectionEmail(email, firstName, reason) {
     const mailOptions = {
-      from: process.env.SMTP_FROM_EMAIL,
       to: email,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL,
+        name: process.env.SENDGRID_FROM_NAME || 'Resume Builder'
+      },
       subject: 'Account Application Update',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -350,14 +325,14 @@ class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      logger.info('Rejection email sent', {
+      const info = await sgMail.send(mailOptions);
+      logger.info('Rejection email sent via SendGrid', {
         to: email,
-        messageId: info.messageId
+        messageId: info[0].headers['x-message-id']
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info[0].headers['x-message-id'] };
     } catch (error) {
-      logger.error('Failed to send rejection email', {
+      logger.error('Failed to send rejection email via SendGrid', {
         to: email,
         error: error.message
       });
@@ -370,8 +345,11 @@ class EmailService {
     const timestamp = new Date().toLocaleString();
     
     const mailOptions = {
-      from: process.env.SMTP_FROM_EMAIL,
       to: adminEmail,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL,
+        name: process.env.SENDGRID_FROM_NAME || 'Resume Builder'
+      },
       subject: `🚀 Resume Builder Server Started - Port ${port}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -444,16 +422,16 @@ class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      logger.info('Server startup notification sent', {
+      const info = await sgMail.send(mailOptions);
+      logger.info('Server startup notification sent via SendGrid', {
         to: adminEmail,
         port: port,
         environment: environment,
-        messageId: info.messageId
+        messageId: info[0].headers['x-message-id']
       });
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info[0].headers['x-message-id'] };
     } catch (error) {
-      logger.error('Failed to send server startup notification', {
+      logger.error('Failed to send server startup notification via SendGrid', {
         to: adminEmail,
         port: port,
         error: error.message

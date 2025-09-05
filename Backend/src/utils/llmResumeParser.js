@@ -1,6 +1,7 @@
 const axios = require('axios');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
+const geminiService = require('../services/geminiService');
 
 // Helper function to estimate token count (rough approximation)
 const estimateTokenCount = (text) => {
@@ -10,8 +11,55 @@ const estimateTokenCount = (text) => {
 
 class LLMResumeParser {
   constructor() {
+    // LLM Provider Configuration
+    this.provider = process.env.LLM_PROVIDER || 'local'; // 'local' or 'cloud'
+    
+    // LM Studio Configuration (Local)
     this.llmApiUrl = process.env.LLM_API_URL || 'http://localhost:1234/v1';
     this.modelName = process.env.LLM_MODEL_NAME || 'deepseek-r1-distill-qwen-32b';
+    
+    console.log(`🤖 LLM Provider: ${this.provider === 'cloud' ? 'Gemini Cloud' : 'LM Studio Local'}`);
+  }
+
+  async callLLM(messages, options = {}) {
+    if (this.provider === 'cloud') {
+      // Use Gemini API
+      try {
+        const response = await geminiService.chatCompletion(messages, {
+          temperature: options.temperature || 0.1,
+          maxTokens: options.maxTokens || 12000,
+          topP: options.topP || 0.8,
+          topK: options.topK || 10
+        });
+        
+        return {
+          content: response.content,
+          usage: response.usage ? {
+            total_tokens: response.usage.totalTokenCount || estimateTokenCount(messages.map(m => m.content).join('') + response.content)
+          } : null
+        };
+      } catch (error) {
+        console.error('Gemini API error:', error.message);
+        throw error;
+      }
+    } else {
+      // Use LM Studio
+      const requestData = {
+        model: this.modelName,
+        messages: messages,
+        temperature: options.temperature || 0.1,
+        max_tokens: options.maxTokens || 12000
+      };
+      
+      const response = await axios.post(`${this.llmApiUrl}/chat/completions`, requestData, {
+        timeout: 240000 // 4 minute timeout
+      });
+      
+      return {
+        content: response.data.choices[0].message.content.trim(),
+        usage: response.data.usage
+      };
+    }
   }
 
   async extractText(buffer, mimeType) {
@@ -40,45 +88,44 @@ class LLMResumeParser {
   async parseResumeWithLLM(resumeText, userId = null) {
     try {
       console.log('=== LLM PARSING DEBUG ===');
-      console.log('LLM API URL:', this.llmApiUrl);
-      console.log('Model Name:', this.modelName);
+      console.log('Provider:', this.provider === 'cloud' ? 'Gemini Cloud' : 'LM Studio Local');
+      if (this.provider === 'local') {
+        console.log('LLM API URL:', this.llmApiUrl);
+        console.log('Model Name:', this.modelName);
+      }
       console.log('Resume text length:', resumeText.length);
       console.log('=== RAW PDF TEXT BEING SENT TO LLM ===');
       console.log(resumeText);
       console.log('=== END RAW PDF TEXT ===');
       
       const prompt = this.createResumeParsingPrompt(resumeText);
-      console.log('Sending request to LLM Studio...');
+      console.log(`Sending request to ${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'}...`);
       
-      const requestData = {
-        model: this.modelName,
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert resume parser. Extract information from resumes and return ONLY valid JSON format. Do not include any explanation or additional text outside the JSON."
-          },
-          {
-            role: "user", 
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 12000
-      };
+      const messages = [
+        {
+          role: "system",
+          content: "You are an expert resume parser. Extract information from resumes and return ONLY valid JSON format. Do not include any explanation or additional text outside the JSON."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ];
       
       console.log('Request payload prepared, making HTTP request...');
       
-      const response = await axios.post(`${this.llmApiUrl}/chat/completions`, requestData, {
-        timeout: 240000 // 4 minute timeout
+      const response = await this.callLLM(messages, {
+        temperature: 0.1,
+        maxTokens: 12000
       });
       
-      console.log('LLM Studio responded with status:', response.status);
+      console.log(`${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'} responded successfully`);
 
-      const llmResponse = response.data.choices[0].message.content.trim();
+      const llmResponse = response.content;
       
       // Track token usage if userId is provided
-      if (userId && response.data.usage) {
-        const tokensUsed = response.data.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
+      if (userId && response.usage) {
+        const tokensUsed = response.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
         try {
           const { recordTokenUsage } = require('../controllers/tokenController');
           await recordTokenUsage(userId, 'resume_parsing', tokensUsed, {
@@ -135,15 +182,23 @@ class LLMResumeParser {
       console.error('Error message:', error.message);
       
       if (error.code === 'ECONNABORTED') {
-        console.error('❌ CONNECTION TIMEOUT - The LLM service took too long to respond (>4 minutes)');
-        console.error('💡 Possible solutions:');
-        console.error('   - Check if LLM service is running at', this.llmApiUrl);
-        console.error('   - Verify the model', this.modelName, 'is loaded and available');
-        console.error('   - Try restarting the LLM service');
-        console.error('   - Consider using a smaller/faster model for testing');
+        console.error(`❌ CONNECTION TIMEOUT - The ${this.provider === 'cloud' ? 'Gemini API' : 'LLM service'} took too long to respond`);
+        if (this.provider === 'local') {
+          console.error('💡 Possible solutions:');
+          console.error('   - Check if LLM service is running at', this.llmApiUrl);
+          console.error('   - Verify the model', this.modelName, 'is loaded and available');
+          console.error('   - Try restarting the LLM service');
+          console.error('   - Consider using a smaller/faster model for testing');
+        } else {
+          console.error('💡 Check your internet connection and Gemini API status');
+        }
       } else if (error.code === 'ECONNREFUSED') {
-        console.error('❌ CONNECTION REFUSED - Cannot connect to LLM service');
-        console.error('💡 Make sure the LLM service is running at', this.llmApiUrl);
+        console.error(`❌ CONNECTION REFUSED - Cannot connect to ${this.provider === 'cloud' ? 'Gemini API' : 'LLM service'}`);
+        if (this.provider === 'local') {
+          console.error('💡 Make sure the LLM service is running at', this.llmApiUrl);
+        } else {
+          console.error('💡 Check your internet connection and API key');
+        }
       } else if (error.response) {
         console.error('HTTP Status:', error.response.status);
         console.error('Response data:', error.response.data);
@@ -578,8 +633,11 @@ ${resumeText}`;
   async customizeResumeForJob(resumeData, jobDescription, userId = null) {
     try {
       console.log('=== LLM RESUME CUSTOMIZATION DEBUG ===');
-      console.log('LLM API URL:', this.llmApiUrl);
-      console.log('Model Name:', this.modelName);
+      console.log('Provider:', this.provider === 'cloud' ? 'Gemini Cloud' : 'LM Studio Local');
+      if (this.provider === 'local') {
+        console.log('LLM API URL:', this.llmApiUrl);
+        console.log('Model Name:', this.modelName);
+      }
       console.log('Job Description Length:', jobDescription?.length || 0);
       console.log('Job Description Preview:', jobDescription?.substring(0, 200) + '...' || 'No description provided');
       
@@ -593,37 +651,33 @@ ${resumeText}`;
       }
       
       const prompt = this.createResumeCustomizationPrompt(resumeData, jobDescription);
-      console.log('Sending customization request to LLM...');
+      console.log(`Sending customization request to ${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'}...`);
       
-      const requestData = {
-        model: this.modelName,
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert resume optimizer. Your task is to modify and tailor resumes to match specific job requirements. You MUST return only valid JSON in the same format as the input resume data. Do not include any explanation or additional text outside the JSON."
-          },
-          {
-            role: "user", 
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 12000
-      };
+      const messages = [
+        {
+          role: "system",
+          content: "You are an expert resume optimizer. Your task is to modify and tailor resumes to match specific job requirements. You MUST return only valid JSON in the same format as the input resume data. Do not include any explanation or additional text outside the JSON."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ];
       
       console.log('Request payload prepared, making HTTP request...');
       
-      const response = await axios.post(`${this.llmApiUrl}/chat/completions`, requestData, {
-        timeout: 240000 // 4 minute timeout
+      const response = await this.callLLM(messages, {
+        temperature: 0.3,
+        maxTokens: 12000
       });
       
-      console.log('LLM Studio responded with status:', response.status);
+      console.log(`${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'} responded successfully`);
 
-      const llmResponse = response.data.choices[0].message.content.trim();
+      const llmResponse = response.content;
       
       // Track token usage if userId is provided
-      if (userId && response.data.usage) {
-        const tokensUsed = response.data.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
+      if (userId && response.usage) {
+        const tokensUsed = response.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
         try {
           const { recordTokenUsage } = require('../controllers/tokenController');
           await recordTokenUsage(userId, 'resume_customization', tokensUsed, {
@@ -761,33 +815,25 @@ GUIDELINES:
 
 Return ONLY the rewritten bullet point - no explanations or additional text.`;
       
-      const requestData = {
-        model: this.modelName,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 200,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0
-      };
+      const messages = [
+        {
+          role: "user",
+          content: prompt
+        }
+      ];
 
-      console.log('Sending rewrite request to LLM...');
-      const response = await axios.post(`${this.llmApiUrl}/chat/completions`, requestData, {
-        timeout: 240000 // 4 minute timeout
+      console.log(`Sending rewrite request to ${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'}...`);
+      const response = await this.callLLM(messages, {
+        temperature: 0.7,
+        maxTokens: 200
       });
       
-      if (response.data && response.data.choices && response.data.choices[0]) {
-        const rewrittenText = response.data.choices[0].message.content.trim();
-        console.log('LLM rewrite response:', rewrittenText);
+      const rewrittenText = response.content;
+      console.log('LLM rewrite response:', rewrittenText);
         
         // Track token usage if userId is provided
-        if (userId && response.data.usage) {
-          const tokensUsed = response.data.usage.total_tokens || estimateTokenCount(prompt + rewrittenText);
+        if (userId && response.usage) {
+          const tokensUsed = response.usage.total_tokens || estimateTokenCount(prompt + rewrittenText);
           try {
             const { recordTokenUsage } = require('../controllers/tokenController');
             await recordTokenUsage(userId, 'responsibility_rewrite', tokensUsed, {
@@ -809,9 +855,6 @@ Return ONLY the rewritten bullet point - no explanations or additional text.`;
         cleanedText = cleanedText.replace(/^[•\-\*]\s*/, '').trim();
         
         return cleanedText;
-      } else {
-        throw new Error('Invalid response structure from LLM');
-      }
     } catch (error) {
       console.error('LLM responsibility rewrite error:', error);
       throw new Error(`Failed to rewrite responsibility: ${error.message}`);
