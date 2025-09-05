@@ -3,7 +3,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { FileText, LogIn, UserPlus, Home, LayoutDashboard, LogOut } from 'lucide-react';
+import { FileText, LogIn, UserPlus, Home, LayoutDashboard, LogOut, Settings } from 'lucide-react';
 import { isAuthenticated, validateTokenWithServer, removeToken } from '@/lib/auth';
 
 interface LayoutProps {
@@ -63,6 +63,15 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             >
               <FileText className="h-4 w-4 mr-2" />
               New Resume
+            </Link>
+          )}
+          {pathname !== '/account' && (
+            <Link
+              href="/account"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white/90 backdrop-blur-sm hover:bg-white/95 transition-all"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Account
             </Link>
           )}
           <button

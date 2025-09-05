@@ -175,6 +175,21 @@ const initializeDatabase = async () => {
       logger.info('✅ Created admin_actions table');
     }
     
+    // Add timezone column to users table if it doesn't exist
+    const checkTimezoneColumn = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'timezone'
+    `);
+    
+    if (checkTimezoneColumn.rows.length === 0) {
+      await pool.query(`
+        ALTER TABLE users 
+        ADD COLUMN timezone VARCHAR(100) DEFAULT 'UTC'
+      `);
+      logger.info('✅ Added timezone column to users table');
+    }
+    
     logger.info('🎉 Database initialization completed successfully');
     
   } catch (error) {

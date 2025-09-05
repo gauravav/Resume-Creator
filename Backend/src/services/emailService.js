@@ -351,6 +351,12 @@ class EmailService {
         name: process.env.SENDGRID_FROM_NAME || 'Resume Builder'
       },
       subject: `🚀 Resume Builder Server Started - Port ${port}`,
+      // Add sandbox mode for testing
+      mail_settings: {
+        sandbox_mode: {
+          enable: process.env.NODE_ENV === 'development'
+        }
+      },
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -427,18 +433,38 @@ class EmailService {
         to: adminEmail,
         port: port,
         environment: environment,
-        messageId: info[0].headers['x-message-id']
+        messageId: info[0].headers['x-message-id'],
+        sandboxMode: process.env.NODE_ENV === 'development'
       });
       return { success: true, messageId: info[0].headers['x-message-id'] };
     } catch (error) {
       logger.error('Failed to send server startup notification via SendGrid', {
         to: adminEmail,
         port: port,
-        error: error.message
+        error: error.message,
+        code: error.code,
+        response: error.response?.body,
+        suggestions: this.getErrorSuggestions(error.code)
       });
       // Don't throw error here as server startup shouldn't fail due to email issues
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, code: error.code };
     }
+  }
+
+  getErrorSuggestions(errorCode) {
+    const suggestions = {
+      401: 'Invalid SendGrid API key. Check SENDGRID_API_KEY in .env file.',
+      403: [
+        'Sender email not verified. Verify gauravavulas@gmail.com in SendGrid dashboard.',
+        'API key lacks permissions. Check API key permissions in SendGrid.',
+        'Domain authentication required. Set up domain authentication in SendGrid.'
+      ],
+      413: 'Email content too large. Reduce email content size.',
+      429: 'Rate limit exceeded. Wait before sending more emails.',
+      500: 'SendGrid server error. Try again later.'
+    };
+    
+    return suggestions[errorCode] || 'Unknown error. Check SendGrid dashboard for details.';
   }
 }
 

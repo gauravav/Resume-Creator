@@ -207,7 +207,11 @@ const login = ErrorHandler.asyncHandler(async (req, res) => {
 
 const getMe = async (req, res) => {
   try {
-    const user = req.user;
+    const user = await User.getUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     const isAdmin = user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
     res.json({
       user: {
@@ -215,6 +219,7 @@ const getMe = async (req, res) => {
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
+        timezone: user.timezone || 'UTC',
         isAdmin: isAdmin,
       },
     });
@@ -227,14 +232,20 @@ const getMe = async (req, res) => {
 const validateToken = async (req, res) => {
   try {
     // If we reach here, the token is valid (middleware passed)
-    const isAdmin = req.user.email.toLowerCase() === 'avulagaurav@gmail.com';
+    const user = await User.getUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isAdmin = user.email.toLowerCase() === 'avulagaurav@gmail.com';
     res.json({
       valid: true,
       user: {
-        id: req.user.id,
-        email: req.user.email,
-        firstName: req.user.first_name,
-        lastName: req.user.last_name,
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        timezone: user.timezone || 'UTC',
         isAdmin: isAdmin,
       }
     });

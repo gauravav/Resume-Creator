@@ -144,11 +144,69 @@ class User {
   static async getUserById(userId) {
     const query = `
       SELECT id, email, first_name, last_name, email_verified, 
-             admin_approved, account_status, created_at, approved_at
+             admin_approved, account_status, timezone, created_at, approved_at
       FROM users 
       WHERE id = $1
     `;
     const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  }
+
+  static async updateProfile(userId, updates) {
+    const allowedFields = ['first_name', 'last_name', 'timezone'];
+    const setClause = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [field, value] of Object.entries(updates)) {
+      if (allowedFields.includes(field) && value !== undefined) {
+        setClause.push(`${field} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (setClause.length === 0) {
+      throw new Error('No valid fields to update');
+    }
+
+    values.push(userId);
+    
+    const query = `
+      UPDATE users 
+      SET ${setClause.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramIndex}
+      RETURNING id, email, first_name, last_name, timezone, updated_at
+    `;
+    
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  }
+
+  static async changePassword(userId, currentPassword, newPassword) {
+    // First verify current password
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const isCurrentPasswordValid = await this.verifyPassword(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    const query = `
+      UPDATE users 
+      SET password = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, email, updated_at
+    `;
+    
+    const result = await pool.query(query, [hashedNewPassword, userId]);
     return result.rows[0];
   }
 }

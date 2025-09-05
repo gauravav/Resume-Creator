@@ -12,6 +12,7 @@ const jobRoutes = require('./routes/jobs');
 const rewriteRoutes = require('./routes/rewrite');
 const tokenRoutes = require('./routes/token');
 const adminRoutes = require('./routes/admin');
+const accountRoutes = require('./routes/account');
 const { initializeBucket } = require('./config/minio');
 const { initializeDatabase, checkDatabaseConnection } = require('./config/dbInit');
 const emailService = require('./services/emailService');
@@ -55,6 +56,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/rewrite', rewriteRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/account', accountRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -84,6 +86,26 @@ const startServer = async () => {
         env: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
       });
+
+      // Log LLM configuration
+      const llmProvider = process.env.LLM_PROVIDER || 'local';
+      if (llmProvider === 'cloud') {
+        const geminiModel = process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash-lite';
+        logger.info(`🤖 LLM Provider: Gemini Cloud (${geminiModel})`, {
+          provider: 'cloud',
+          model: geminiModel,
+          service: 'Gemini API'
+        });
+      } else {
+        const lmStudioModel = process.env.LLM_MODEL_NAME || 'deepseek-r1-distill-qwen-32b';
+        const lmStudioUrl = process.env.LLM_API_URL || 'http://localhost:1234/v1';
+        logger.info(`🤖 LLM Provider: LM Studio Local (${lmStudioModel})`, {
+          provider: 'local',
+          model: lmStudioModel,
+          url: lmStudioUrl,
+          service: 'LM Studio'
+        });
+      }
 
       // Send startup notification email
       try {

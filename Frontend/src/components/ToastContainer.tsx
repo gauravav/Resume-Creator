@@ -8,15 +8,16 @@ interface ToastData {
   type: 'success' | 'error' | 'warning';
   message: string;
   duration?: number;
+  timestamp?: number;
 }
 
 let toastManager: {
-  addToast: (toast: Omit<ToastData, 'id'>) => void;
+  addToast: (toast: Omit<ToastData, 'id' | 'timestamp'>) => void;
 } | null = null;
 
 export function useToast() {
   return {
-    showToast: (toast: Omit<ToastData, 'id'>) => {
+    showToast: (toast: Omit<ToastData, 'id' | 'timestamp'>) => {
       if (toastManager) {
         toastManager.addToast(toast);
       }
@@ -27,9 +28,39 @@ export function useToast() {
 export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
-  const addToast = useCallback((toast: Omit<ToastData, 'id'>) => {
+  const addToast = useCallback((toast: Omit<ToastData, 'id' | 'timestamp'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setToasts(prev => [...prev, { ...toast, id }]);
+    const timestamp = Date.now();
+    
+    // Check for duplicate toasts (especially rate limit ones)
+    setToasts(prev => {
+      // If this is a rate limit toast, check for existing similar toasts
+      if (toast.message.includes('Rate limit exceeded')) {
+        const existingRateLimitToast = prev.find(t => 
+          t.message.includes('Rate limit exceeded') && 
+          t.type === 'warning'
+        );
+        
+        // If we already have a rate limit toast showing, don't add another
+        if (existingRateLimitToast) {
+          return prev;
+        }
+      }
+      
+      // Check for exact duplicate messages within the last 5 seconds
+      const duplicateToast = prev.find(t => 
+        t.message === toast.message && 
+        t.type === toast.type &&
+        t.timestamp &&
+        (timestamp - t.timestamp) < 5000
+      );
+      
+      if (duplicateToast) {
+        return prev;
+      }
+      
+      return [...prev, { ...toast, id, timestamp }];
+    });
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -59,8 +90,16 @@ export default function ToastContainer() {
       }
     }
 
+    // Listen for custom toast events (e.g., from API interceptors)
+    const handleCustomToast = (event: CustomEvent) => {
+      addToast(event.detail);
+    };
+
+    window.addEventListener('showToast', handleCustomToast as EventListener);
+
     return () => {
       toastManager = null;
+      window.removeEventListener('showToast', handleCustomToast as EventListener);
     };
   }, [addToast]);
 

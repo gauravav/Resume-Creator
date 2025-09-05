@@ -24,9 +24,42 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Rate limit toast deduplication
+let lastRateLimitToast: { message: string; timestamp: number } | null = null;
+const RATE_LIMIT_TOAST_COOLDOWN = 10000; // 10 seconds cooldown between same rate limit toasts
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle rate limiting errors
+    if (error.response?.status === 429) {
+      const errorData = error.response.data;
+      const retryAfter = errorData?.retryAfter || 'a few minutes';
+      const message = `Rate limit exceeded. Please try again after ${retryAfter}.`;
+      const now = Date.now();
+      
+      // Check if we should show this toast (deduplication)
+      const shouldShowToast = !lastRateLimitToast || 
+        lastRateLimitToast.message !== message || 
+        (now - lastRateLimitToast.timestamp) > RATE_LIMIT_TOAST_COOLDOWN;
+      
+      if (shouldShowToast && typeof window !== 'undefined') {
+        lastRateLimitToast = { message, timestamp: now };
+        
+        // Use a timeout to ensure toast manager is initialized
+        setTimeout(() => {
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              type: 'warning',
+              message: message,
+              duration: 8000 // Show for 8 seconds for rate limit errors
+            }
+          });
+          window.dispatchEvent(toastEvent);
+        }, 100);
+      }
+    }
+    
     // Only redirect to login if it's an invalid/expired token, not login failures
     if (error.response?.status === 401 && 
         !error.config?.url?.includes('/api/auth/login') &&
@@ -329,6 +362,54 @@ export const tokenApi = {
 
   getUsageStats: async (): Promise<{success: boolean; data: TokenStats}> => {
     const response = await api.get('/api/tokens/stats');
+    return response.data;
+  },
+};
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  timezone: string;
+  email_verified: boolean;
+  admin_approved: boolean;
+  account_status: string;
+  created_at: string;
+  approved_at?: string;
+}
+
+export interface Timezone {
+  value: string;
+  label: string;
+}
+
+export const accountApi = {
+  getProfile: async (): Promise<{success: boolean; data: UserProfile}> => {
+    const response = await api.get('/api/account/profile');
+    return response.data;
+  },
+
+  updateProfile: async (updates: {
+    firstName?: string;
+    lastName?: string;
+    timezone?: string;
+  }) => {
+    const response = await api.put('/api/account/profile', updates);
+    return response.data;
+  },
+
+  changePassword: async (passwordData: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => {
+    const response = await api.put('/api/account/password', passwordData);
+    return response.data;
+  },
+
+  getTimezones: async (): Promise<{success: boolean; data: Timezone[]}> => {
+    const response = await api.get('/api/account/timezones');
     return response.data;
   },
 };

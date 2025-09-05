@@ -27,10 +27,18 @@ class RateLimiter {
           method: req.method
         });
         
+        // Calculate precise retry time
+        const resetTime = new Date(Date.now() + (15 * 60 * 1000)); // 15 minutes from now
+        const retryAfterSeconds = Math.ceil((resetTime - Date.now()) / 1000);
+        const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+        
+        res.set('Retry-After', retryAfterSeconds.toString());
         res.status(429).json({
           error: 'Too many requests',
           message: 'Rate limit exceeded. Please try again later.',
-          retryAfter: '15 minutes'
+          retryAfter: `${retryAfterMinutes} minute${retryAfterMinutes !== 1 ? 's' : ''}`,
+          retryAfterSeconds: retryAfterSeconds,
+          resetTime: resetTime.toISOString()
         });
       }
     });
@@ -58,10 +66,18 @@ class RateLimiter {
           body: req.body.email ? { email: req.body.email } : {}
         });
         
+        // Calculate precise retry time
+        const resetTime = new Date(Date.now() + (15 * 60 * 1000)); // 15 minutes from now
+        const retryAfterSeconds = Math.ceil((resetTime - Date.now()) / 1000);
+        const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+        
+        res.set('Retry-After', retryAfterSeconds.toString());
         res.status(429).json({
           error: 'Too many authentication attempts',
           message: 'Too many failed login attempts. Please try again later.',
-          retryAfter: '15 minutes'
+          retryAfter: `${retryAfterMinutes} minute${retryAfterMinutes !== 1 ? 's' : ''}`,
+          retryAfterSeconds: retryAfterSeconds,
+          resetTime: resetTime.toISOString()
         });
       }
     });
@@ -87,10 +103,18 @@ class RateLimiter {
           url: req.originalUrl
         });
         
+        // Calculate precise retry time
+        const resetTime = new Date(Date.now() + (10 * 60 * 1000)); // 10 minutes from now
+        const retryAfterSeconds = Math.ceil((resetTime - Date.now()) / 1000);
+        const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+        
+        res.set('Retry-After', retryAfterSeconds.toString());
         res.status(429).json({
           error: 'Too many file uploads',
           message: 'Upload rate limit exceeded. Please try again later.',
-          retryAfter: '10 minutes'
+          retryAfter: `${retryAfterMinutes} minute${retryAfterMinutes !== 1 ? 's' : ''}`,
+          retryAfterSeconds: retryAfterSeconds,
+          resetTime: resetTime.toISOString()
         });
       }
     });
