@@ -36,7 +36,7 @@ const register = ErrorHandler.asyncHandler(async (req, res) => {
     
     if (!isSuperAdmin) {
       // Send verification email for regular users only
-      await emailService.sendVerificationEmail(email, user.email_verification_token, firstName);
+      await emailService.sendVerificationEmail(email, user.email_verification_token, firstName, req);
     }
 
     logger.info(isSuperAdmin ? 'Super admin registered successfully' : 'User registered successfully, verification email sent', {
@@ -279,7 +279,8 @@ const verifyEmail = ErrorHandler.asyncHandler(async (req, res) => {
       verifiedUser.email, 
       verifiedUser.first_name, 
       verifiedUser.last_name, 
-      verifiedUser.id
+      verifiedUser.id,
+      req
     );
 
     logger.info('Email verified successfully', {
