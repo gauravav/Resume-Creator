@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, LogIn, RefreshCw } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import Layout from '@/components/Layout';
@@ -22,6 +22,9 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [userEmailForResend, setUserEmailForResend] = useState('');
+  const [isResending, setIsResending] = useState(false);
   const router = useRouter();
   const { showToast } = useToast();
 
@@ -66,6 +69,9 @@ export default function LoginPage() {
           errorMessage = '📧 Please verify your email address before logging in. Check your inbox for the verification link.';
           toastType = 'warning';
           duration = 10000;
+          // Show resend verification button
+          setShowResendButton(true);
+          setUserEmailForResend(data.email);
         } else if (error.response?.data?.code === 'PENDING_APPROVAL') {
           errorMessage = '⏳ Your account is pending admin approval. You will receive an email once approved.';
           toastType = 'warning';
@@ -85,6 +91,42 @@ export default function LoginPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!userEmailForResend) return;
+    
+    setIsResending(true);
+    
+    try {
+      await authApi.resendVerificationEmail(userEmailForResend);
+      showToast({
+        type: 'success',
+        message: '📧 Verification email has been resent! Please check your inbox and spam folder.',
+        duration: 8000
+      });
+      setShowResendButton(false);
+    } catch (err) {
+      console.error('Resend verification error:', err);
+      const error = err as {response?: {data?: {message?: string, code?: string}}};
+      
+      let errorMessage = 'Failed to resend verification email. Please try again.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        if (error.response?.data?.code === 'ALREADY_VERIFIED') {
+          setShowResendButton(false);
+        }
+      }
+      
+      showToast({
+        type: 'error',
+        message: errorMessage,
+        duration: 6000
+      });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -159,7 +201,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-3">
             <button
               type="submit"
               disabled={isLoading}
@@ -178,6 +220,29 @@ export default function LoginPage() {
                 )}
               </span>
             </button>
+            
+            {showResendButton && (
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={isResending}
+                className="group relative w-full flex justify-center py-2 px-4 border border-orange-500 text-sm font-medium rounded-lg text-orange-600 bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out"
+              >
+                <span className="flex items-center justify-center">
+                  {isResending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Resend Verification Email
+                    </>
+                  )}
+                </span>
+              </button>
+            )}
           </div>
 
           <div className="text-center">

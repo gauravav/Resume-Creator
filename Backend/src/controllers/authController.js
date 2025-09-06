@@ -315,10 +315,74 @@ const verifyEmail = ErrorHandler.asyncHandler(async (req, res) => {
   }
 });
 
+const resendVerificationEmail = ErrorHandler.asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    throw ErrorHandler.invalidInput('Email address is required');
+  }
+
+  try {
+    // Generate new verification token
+    const user = await User.generateNewVerificationToken(email);
+    
+    // Send new verification email
+    await emailService.sendVerificationEmail(
+      user.email, 
+      user.email_verification_token, 
+      user.first_name, 
+      req
+    );
+
+    logger.info('Verification email resent successfully', {
+      userId: user.id,
+      email: user.email,
+      ip: req.ip
+    });
+
+    logger.authEvent('VERIFICATION_EMAIL_RESENT', user.id, {
+      email: user.email,
+      ip: req.ip
+    });
+
+    res.json({
+      message: 'Verification email has been resent. Please check your inbox.',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name
+      }
+    });
+  } catch (error) {
+    if (error.message === 'User not found') {
+      logger.security('Resend verification attempt with non-existent email', {
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('If an account with this email exists, a verification email has been sent.', 200, 'EMAIL_SENT');
+    } else if (error.message === 'Email already verified') {
+      logger.info('Resend verification attempt for already verified email', {
+        email,
+        ip: req.ip
+      });
+      throw ErrorHandler.createError('This email address is already verified.', 400, 'ALREADY_VERIFIED');
+    }
+    
+    logger.error('Failed to resend verification email', {
+      email,
+      error: error.message,
+      ip: req.ip
+    });
+    throw ErrorHandler.createError('Failed to resend verification email. Please try again later.', 500, 'RESEND_FAILED');
+  }
+});
+
 module.exports = {
   register,
   login,
   getMe,
   validateToken,
   verifyEmail,
+  resendVerificationEmail,
 };
