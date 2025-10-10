@@ -90,11 +90,11 @@ const startServer = async () => {
       // Log LLM configuration
       const llmProvider = process.env.LLM_PROVIDER || 'local';
       if (llmProvider === 'cloud') {
-        const geminiModel = process.env.GEMINI_MODEL_NAME || 'gemini-2.0-flash-lite';
-        logger.info(`🤖 LLM Provider: Gemini Cloud (${geminiModel})`, {
+        const deepseekModel = process.env.DEEPSEEKER_MODEL || 'deepseek-chat';
+        logger.info(`🤖 LLM Provider: DeepSeek Cloud (${deepseekModel})`, {
           provider: 'cloud',
-          model: geminiModel,
-          service: 'Gemini API'
+          model: deepseekModel,
+          service: 'DeepSeek API'
         });
       } else {
         const lmStudioModel = process.env.LLM_MODEL_NAME || 'deepseek-r1-distill-qwen-32b';

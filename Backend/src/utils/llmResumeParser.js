@@ -2,6 +2,7 @@ const axios = require('axios');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const geminiService = require('../services/geminiService');
+const deepseekService = require('../services/deepseekService');
 
 // Helper function to estimate token count (rough approximation)
 const estimateTokenCount = (text) => {
@@ -13,33 +14,32 @@ class LLMResumeParser {
   constructor() {
     // LLM Provider Configuration
     this.provider = process.env.LLM_PROVIDER || 'local'; // 'local' or 'cloud'
-    
+
     // LM Studio Configuration (Local)
     this.llmApiUrl = process.env.LLM_API_URL || 'http://localhost:1234/v1';
     this.modelName = process.env.LLM_MODEL_NAME || 'deepseek-r1-distill-qwen-32b';
-    
-    console.log(`🤖 LLM Provider: ${this.provider === 'cloud' ? 'Gemini Cloud' : 'LM Studio Local'}`);
+
+    console.log(`🤖 LLM Provider: ${this.provider === 'cloud' ? 'DeepSeek Cloud' : 'LM Studio Local'}`);
   }
 
   async callLLM(messages, options = {}) {
     if (this.provider === 'cloud') {
-      // Use Gemini API
+      // Use DeepSeek API (max_tokens limit: 8192)
       try {
-        const response = await geminiService.chatCompletion(messages, {
+        const maxTokens = Math.min(options.maxTokens || 8192, 8192);
+        const response = await deepseekService.chatCompletion(messages, {
           temperature: options.temperature || 0.1,
-          maxTokens: options.maxTokens || 12000,
-          topP: options.topP || 0.8,
-          topK: options.topK || 10
+          maxTokens: maxTokens
         });
-        
+
         return {
           content: response.content,
           usage: response.usage ? {
-            total_tokens: response.usage.totalTokenCount || estimateTokenCount(messages.map(m => m.content).join('') + response.content)
+            total_tokens: response.usage.total_tokens || estimateTokenCount(messages.map(m => m.content).join('') + response.content)
           } : null
         };
       } catch (error) {
-        console.error('Gemini API error:', error.message);
+        console.error('DeepSeek API error:', error.message);
         throw error;
       }
     } else {
@@ -50,11 +50,11 @@ class LLMResumeParser {
         temperature: options.temperature || 0.1,
         max_tokens: options.maxTokens || 12000
       };
-      
+
       const response = await axios.post(`${this.llmApiUrl}/chat/completions`, requestData, {
         timeout: 240000 // 4 minute timeout
       });
-      
+
       return {
         content: response.data.choices[0].message.content.trim(),
         usage: response.data.usage
@@ -88,7 +88,7 @@ class LLMResumeParser {
   async parseResumeWithLLM(resumeText, userId = null) {
     try {
       console.log('=== LLM PARSING DEBUG ===');
-      console.log('Provider:', this.provider === 'cloud' ? 'Gemini Cloud' : 'LM Studio Local');
+      console.log('Provider:', this.provider === 'cloud' ? 'DeepSeek Cloud' : 'LM Studio Local');
       if (this.provider === 'local') {
         console.log('LLM API URL:', this.llmApiUrl);
         console.log('Model Name:', this.modelName);
@@ -99,7 +99,7 @@ class LLMResumeParser {
       console.log('=== END RAW PDF TEXT ===');
       
       const prompt = this.createResumeParsingPrompt(resumeText);
-      console.log(`Sending request to ${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'}...`);
+      console.log(`Sending request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
       
       const messages = [
         {
@@ -119,7 +119,7 @@ class LLMResumeParser {
         maxTokens: 12000
       });
       
-      console.log(`${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'} responded successfully`);
+      console.log(`${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'} responded successfully`);
 
       const llmResponse = response.content;
       
@@ -182,7 +182,7 @@ class LLMResumeParser {
       console.error('Error message:', error.message);
       
       if (error.code === 'ECONNABORTED') {
-        console.error(`❌ CONNECTION TIMEOUT - The ${this.provider === 'cloud' ? 'Gemini API' : 'LLM service'} took too long to respond`);
+        console.error(`❌ CONNECTION TIMEOUT - The ${this.provider === 'cloud' ? 'DeepSeek API' : 'LLM service'} took too long to respond`);
         if (this.provider === 'local') {
           console.error('💡 Possible solutions:');
           console.error('   - Check if LLM service is running at', this.llmApiUrl);
@@ -190,10 +190,10 @@ class LLMResumeParser {
           console.error('   - Try restarting the LLM service');
           console.error('   - Consider using a smaller/faster model for testing');
         } else {
-          console.error('💡 Check your internet connection and Gemini API status');
+          console.error('💡 Check your internet connection and DeepSeek API status');
         }
       } else if (error.code === 'ECONNREFUSED') {
-        console.error(`❌ CONNECTION REFUSED - Cannot connect to ${this.provider === 'cloud' ? 'Gemini API' : 'LLM service'}`);
+        console.error(`❌ CONNECTION REFUSED - Cannot connect to ${this.provider === 'cloud' ? 'DeepSeek API' : 'LLM service'}`);
         if (this.provider === 'local') {
           console.error('💡 Make sure the LLM service is running at', this.llmApiUrl);
         } else {
@@ -633,7 +633,7 @@ ${resumeText}`;
   async customizeResumeForJob(resumeData, jobDescription, userId = null) {
     try {
       console.log('=== LLM RESUME CUSTOMIZATION DEBUG ===');
-      console.log('Provider:', this.provider === 'cloud' ? 'Gemini Cloud' : 'LM Studio Local');
+      console.log('Provider:', this.provider === 'cloud' ? 'DeepSeek Cloud' : 'LM Studio Local');
       if (this.provider === 'local') {
         console.log('LLM API URL:', this.llmApiUrl);
         console.log('Model Name:', this.modelName);
@@ -651,7 +651,7 @@ ${resumeText}`;
       }
       
       const prompt = this.createResumeCustomizationPrompt(resumeData, jobDescription);
-      console.log(`Sending customization request to ${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'}...`);
+      console.log(`Sending customization request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
       
       const messages = [
         {
@@ -671,7 +671,7 @@ ${resumeText}`;
         maxTokens: 12000
       });
       
-      console.log(`${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'} responded successfully`);
+      console.log(`${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'} responded successfully`);
 
       const llmResponse = response.content;
       
@@ -822,7 +822,7 @@ Return ONLY the rewritten bullet point - no explanations or additional text.`;
         }
       ];
 
-      console.log(`Sending rewrite request to ${this.provider === 'cloud' ? 'Gemini' : 'LM Studio'}...`);
+      console.log(`Sending rewrite request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
       const response = await this.callLLM(messages, {
         temperature: 0.7,
         maxTokens: 200
