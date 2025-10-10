@@ -18,6 +18,8 @@ A comprehensive, security-hardened resume management application built with mode
 - **⚡ Advanced Rate Limiting** - Resource-specific and user-based limits
 - **📊 Security Monitoring** - Detailed logging and threat detection
 - **🔑 Strong Authentication** - Enhanced password policies and JWT security
+- **✉️ Email Verification System** - Secure user verification with dynamic URL generation
+- **👤 User Management** - Admin approval workflow and comprehensive user profiles
 
 ## 🏗️ Architecture
 
@@ -60,11 +62,12 @@ Restor/
 ### Backend
 - **Node.js** - JavaScript runtime
 - **Express.js** - Web application framework
-- **PostgreSQL** - Relational database
+- **PostgreSQL** - Relational database with user profiles and timezone support
 - **MinIO** - S3-compatible object storage
 - **JWT** - Authentication tokens
 - **Joi** - Input validation
 - **bcryptjs** - Password hashing
+- **SendGrid** - Email service for verification and notifications
 
 ### Infrastructure
 - **Docker & Docker Compose** - Containerization
@@ -113,14 +116,59 @@ docker-compose up -d --build
 | **MinIO Console** | http://localhost:9003 | Object storage management |
 | **Health Check** | http://localhost:3000/health | Service status |
 
+## 🔄 Recent Updates & Fixes
+
+### Database Schema Updates (September 2025)
+- **✅ User Timezone Support**: Added `timezone` column to users table with automatic UTC default
+- **🔧 Database Initialization**: Enhanced database initialization to handle missing columns gracefully
+- **📊 User Profile Management**: Complete user profile system with timezone preferences
+
+### Email System Enhancements
+- **🌐 Dynamic URL Generation**: Email verification links now automatically adapt based on deployment:
+  - **Localhost Development**: Links use `http://localhost:3000`
+  - **Remote Server**: Links use actual server IP address and port
+  - **Custom Domain**: Respects `FRONTEND_URL` environment variable
+- **📧 SendGrid Integration**: Professional email delivery with comprehensive templates
+- **🔔 Admin Notifications**: Automated notifications for user registration and approval workflow
+
+### URL Configuration System
+The application now includes intelligent URL detection in `/src/utils/urlUtils.js`:
+- **Request-Based Detection**: Uses request headers when available
+- **Environment Detection**: Checks service configuration (DB, MinIO) to determine deployment type
+- **Network Interface Detection**: Automatically discovers server IP for remote deployments
+- **Fallback System**: Multiple fallback layers ensure emails always have working links
+
+### User Management Workflow
+1. **User Registration** → Email verification sent with dynamic URL
+2. **Email Verification** → Admin notification sent
+3. **Admin Approval** → Welcome email sent to user
+4. **Account Active** → Full access to resume management features
+
 ## 📚 API Documentation
 
 ### Authentication Endpoints
 ```
-POST /api/auth/register     - User registration
-POST /api/auth/login        - User login
-GET  /api/auth/me          - Get current user
-GET  /api/auth/validate    - Validate JWT token
+POST /api/auth/register       - User registration with email verification
+POST /api/auth/login          - User login with approval checks
+GET  /api/auth/me            - Get current user profile
+GET  /api/auth/validate      - Validate JWT token
+GET  /api/auth/verify-email  - Email verification endpoint
+```
+
+### User Management Endpoints
+```
+GET  /api/admin/users              - Get all users (admin only)
+GET  /api/admin/users/pending      - Get pending approval users
+POST /api/admin/users/:id/approve  - Approve user account
+POST /api/admin/users/:id/reject   - Reject user account
+POST /api/admin/users/:id/reset-tokens - Reset user token usage
+```
+
+### Account Management Endpoints
+```
+PUT  /api/account/profile     - Update user profile (name, timezone)
+POST /api/account/password    - Change password
+GET  /api/account/usage       - Get token usage statistics
 ```
 
 ### Resume Management Endpoints
@@ -249,6 +297,8 @@ All services include health checks:
 POSTGRES_DB=resume_db
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=[secure-password]
+DB_HOST=localhost
+DB_PORT=5433
 ```
 
 #### MinIO Object Storage
@@ -256,12 +306,47 @@ POSTGRES_PASSWORD=[secure-password]
 MINIO_ROOT_USER=[secure-access-key]
 MINIO_ROOT_PASSWORD=[secure-secret-key]
 MINIO_BUCKET_NAME=resumes
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9002
+```
+
+#### Email Configuration (SendGrid)
+```env
+SENDGRID_API_KEY=[your-sendgrid-api-key]
+SENDGRID_FROM_EMAIL=[verified-sender-email]
+SENDGRID_FROM_NAME=Resume Builder
+ADMIN_EMAIL=[admin-email-for-notifications]
+```
+
+#### URL Configuration
+```env
+# Optional: Set explicit URLs (auto-detected if not set)
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:3200
+
+# For production deployments:
+# FRONTEND_URL=https://your-domain.com
+# BACKEND_URL=https://api.your-domain.com
 ```
 
 #### Application Security
 ```env
 JWT_SECRET=[cryptographically-secure-secret]
 NODE_ENV=production
+```
+
+#### AI/LLM Configuration
+```env
+# Choose your LLM provider: "local" or "cloud"
+LLM_PROVIDER=cloud
+
+# For local LM Studio
+LLM_API_URL=http://localhost:1234/v1
+LLM_MODEL_NAME=microsoft/phi-4
+
+# For Google Gemini
+GEMINI_API_KEY=[your-gemini-api-key]
+GEMINI_MODEL_NAME=gemini-2.0-flash-lite
 ```
 
 ### Service Configuration
@@ -305,6 +390,11 @@ Configure file security in `Backend/src/utils/fileValidator.js`:
 - [ ] Review and customize rate limits
 - [ ] Implement backup strategies
 - [ ] Configure intrusion detection
+- [ ] **Set up SendGrid account and verify sender email**
+- [ ] **Configure environment URLs for your domain**
+- [ ] **Set admin email for notifications**
+- [ ] **Test email verification workflow**
+- [ ] **Verify database timezone column exists**
 
 ### Security Best Practices
 1. **Regular Updates**: Keep dependencies current
@@ -360,6 +450,28 @@ npm run reset-db
 - Check file size limits (10MB maximum)
 - Verify file type (PDF, DOC, DOCX only)
 - Review security logs for validation errors
+
+**Database column errors?**
+```bash
+# Fix missing timezone column
+cd Backend
+node -e "require('./src/config/dbInit').initializeDatabase()"
+
+# Or restart the application (auto-fixes on startup)
+npm start
+```
+
+**Email verification links not working?**
+- Check email links match your server's host/IP
+- Verify `FRONTEND_URL` environment variable
+- Review email service logs: `docker-compose logs backend`
+- Ensure SendGrid API key is valid and sender email is verified
+
+**User approval workflow issues?**
+- Super admin email: Set `ADMIN_EMAIL` in environment
+- Check user account status in database
+- Review admin notification emails
+- Verify email service configuration
 
 ### Getting Help
 - Check the logs in `Backend/logs/`

@@ -163,7 +163,7 @@ const approveUser = ErrorHandler.asyncHandler(async (req, res) => {
     });
 
     // Send approval email to user
-    await emailService.sendApprovalEmail(approvedUser.email, approvedUser.first_name);
+    await emailService.sendApprovalEmail(approvedUser.email, approvedUser.first_name, req);
 
     res.json({
       message: 'User approved successfully',

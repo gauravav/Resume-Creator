@@ -1,5 +1,6 @@
 const sgMail = require('@sendgrid/mail');
 const logger = require('../utils/logger');
+const { getFrontendUrl } = require('../utils/urlUtils');
 
 class EmailService {
   constructor() {
@@ -50,8 +51,9 @@ class EmailService {
     }
   }
 
-  async sendVerificationEmail(email, verificationToken, firstName) {
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+  async sendVerificationEmail(email, verificationToken, firstName, req = null) {
+    const frontendUrl = getFrontendUrl(req);
+    const verificationUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
     
     const mailOptions = {
       to: email,
@@ -135,8 +137,9 @@ class EmailService {
     }
   }
 
-  async sendAdminNotification(userEmail, firstName, lastName, userId) {
+  async sendAdminNotification(userEmail, firstName, lastName, userId, req = null) {
     const adminEmail = process.env.ADMIN_EMAIL;
+    const frontendUrl = getFrontendUrl(req);
     
     const mailOptions = {
       to: adminEmail,
@@ -174,7 +177,7 @@ class EmailService {
             </table>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/dashboard" 
+              <a href="${frontendUrl}/admin/dashboard" 
                  style="background: #28a745; 
                         color: white; 
                         text-decoration: none; 
@@ -213,8 +216,9 @@ class EmailService {
     }
   }
 
-  async sendApprovalEmail(email, firstName) {
-    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
+  async sendApprovalEmail(email, firstName, req = null) {
+    const frontendUrl = getFrontendUrl(req);
+    const loginUrl = `${frontendUrl}/login`;
     
     const mailOptions = {
       to: email,

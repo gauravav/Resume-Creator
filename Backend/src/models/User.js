@@ -209,6 +209,32 @@ class User {
     const result = await pool.query(query, [hashedNewPassword, userId]);
     return result.rows[0];
   }
+
+  static async generateNewVerificationToken(email) {
+    const user = await this.findByEmail(email);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.email_verified) {
+      throw new Error('Email already verified');
+    }
+
+    const verificationToken = uuidv4();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    const query = `
+      UPDATE users 
+      SET email_verification_token = $1, 
+          email_verification_expires = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE email = $3
+      RETURNING id, email, first_name, last_name, email_verification_token
+    `;
+    
+    const result = await pool.query(query, [verificationToken, verificationExpires, email]);
+    return result.rows[0];
+  }
 }
 
 module.exports = User;

@@ -135,6 +135,11 @@ export const authApi = {
     const response = await api.get(`/api/auth/verify-email?token=${token}`);
     return response.data;
   },
+  
+  resendVerificationEmail: async (email: string) => {
+    const response = await api.post('/api/auth/resend-verification', { email });
+    return response.data;
+  },
 };
 
 export const resumeApi = {
