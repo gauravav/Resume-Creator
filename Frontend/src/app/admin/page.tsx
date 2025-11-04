@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  FileText, 
+import {
+  FileText,
   User,
   LogOut,
   ChevronDown,
@@ -16,7 +16,8 @@ import {
   Clock,
   UserCheck,
   UserX,
-  AlertCircle
+  AlertCircle,
+  FileCode
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
@@ -401,7 +402,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
                   <UserCheck className="h-8 w-8 text-green-500 mr-3" />
@@ -411,7 +412,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
                   <Clock className="h-8 w-8 text-yellow-500 mr-3" />
@@ -421,7 +422,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
                   <UserX className="h-8 w-8 text-red-500 mr-3" />
@@ -431,7 +432,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center">
                   <Zap className="h-8 w-8 text-purple-500 mr-3" />
@@ -443,6 +444,27 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* Admin Tools */}
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-lg mb-8 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FileCode className="h-8 w-8 text-white mr-3" />
+                  <div>
+                    <h3 className="text-lg font-medium text-white">LaTeX to PDF Test Tool</h3>
+                    <p className="text-indigo-100 text-sm">Test LaTeX conversion functionality</p>
+                  </div>
+                </div>
+                <Link
+                  href="/admin/latex-test"
+                  className="inline-flex items-center px-4 py-2 border border-white text-sm font-medium rounded-md text-white hover:bg-white hover:text-indigo-600 transition-colors"
+                >
+                  Open Tool
+                </Link>
+              </div>
+            </div>
+          </div>
 
           {/* Pending Approvals */}
           <div className="bg-white rounded-lg shadow mb-8">
