@@ -2,12 +2,29 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import { ResumeData } from '@/types/resume';
 
-const isLocalhost = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+/**
+ * Dynamically construct API URL based on current hostname
+ * Always uses port 3200 for backend API
+ * Works with localhost, network IPs (192.168.x.x), and production servers
+ */
+export const getApiBaseUrl = () => {
+  // Server-side rendering fallback
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200';
+  }
 
-const API_BASE_URL = isLocalhost 
-  ? process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200'
-  : process.env.NEXT_PUBLIC_API_URL_PROD || 'http://143.198.11.73:3200';
+  // Get current hostname and protocol
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol; // 'http:' or 'https:'
+
+  // Backend always runs on port 3200
+  const API_PORT = '3200';
+
+  // Construct dynamic API URL: protocol://hostname:3200
+  return `${protocol}//${hostname}:${API_PORT}`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -88,6 +105,9 @@ export interface Resume {
   fileName: string;
   resumeFileName: string;
   jsonFileName: string;
+  pdfFileName?: string;
+  pdfStatus?: 'pending' | 'generating' | 'ready' | 'failed';
+  pdfGeneratedAt?: string;
   originalName: string;
   uploadDate: string;
   size: number;
@@ -147,11 +167,14 @@ export const resumeApi = {
   getAll: async (): Promise<Resume[]> => {
     const response = await api.get('/api/resumes');
     const resumes = response.data.resumes || [];
-    return resumes.map((resume: ResumeResponse) => ({
+    return resumes.map((resume: any) => ({
       id: resume.id,
       fileName: resume.fileName || resume.resumeFileName,
       resumeFileName: resume.resumeFileName,
       jsonFileName: resume.jsonFileName,
+      pdfFileName: resume.pdfFileName,
+      pdfStatus: resume.pdfStatus || 'pending',
+      pdfGeneratedAt: resume.pdfGeneratedAt,
       originalName: resume.originalName,
       uploadDate: resume.uploadDate,
       size: parseInt(resume.size),
@@ -185,18 +208,19 @@ export const resumeApi = {
     await api.delete(`/api/resumes/${resumeId}`);
   },
 
-  parse: async (file: File) => {
+  parse: async (file: File, format: 'json' | 'latex' = 'json') => {
     console.log('=== FRONTEND DEBUG: Starting resume parse ===');
     console.log('File name:', file.name);
     console.log('File size:', file.size);
+    console.log('Format:', format);
     console.log('API Base URL:', API_BASE_URL);
-    
+
     const formData = new FormData();
     formData.append('resume', file);
-    
+
     try {
-      console.log('Making request to /api/resumes/parse...');
-      const response = await api.post('/api/resumes/parse', formData, {
+      console.log(`Making request to /api/resumes/parse?format=${format}...`);
+      const response = await api.post(`/api/resumes/parse?format=${format}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -218,7 +242,7 @@ export const resumeApi = {
 
   getParsedData: async (resumeId: number) => {
     const response = await api.get(`/api/resumes/parsed-data/${resumeId}`);
-    return response.data.parsedData;
+    return response.data; // Returns JSON data
   },
 
   updateParsedData: async (resumeId: number, parsedData: ResumeData, resumeName?: string) => {
@@ -231,22 +255,25 @@ export const resumeApi = {
     return response.data;
   },
 
-  saveParsed: async (parsedData: ResumeData, resumeName: string) => {
+  saveParsed: async (parsedData: ResumeData | string, resumeName: string, structureMetadata?: any) => {
     console.log('API saveParsed called with:', {
       resumeName,
       parsedDataType: typeof parsedData,
-      parsedDataKeys: parsedData ? Object.keys(parsedData) : 'null'
+      parsedDataKeys: typeof parsedData === 'object' ? Object.keys(parsedData) : 'string',
+      hasStructureMetadata: !!structureMetadata
     });
 
     const payload = {
       parsedData: JSON.stringify(parsedData),
-      resumeName: resumeName
+      resumeName: resumeName,
+      structureMetadata: structureMetadata ? JSON.stringify(structureMetadata) : undefined
     };
-    
+
     console.log('API payload prepared:', {
       resumeName: payload.resumeName,
-      parsedDataLength: payload.parsedData?.length,
-      parsedDataPreview: payload.parsedData?.substring(0, 200) + '...'
+      parsedDataLength: payload.parsedData.length,
+      parsedDataPreview: payload.parsedData.substring(0, 200) + '...',
+      hasStructureMetadata: !!payload.structureMetadata
     });
 
     try {
@@ -282,6 +309,101 @@ export const resumeApi = {
   downloadPDF: async (resumeId: number) => {
     const response = await api.get(`/api/resumes/pdf/${resumeId}`, {
       responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  checkPDFStatus: async (resumeId: number) => {
+    const response = await api.get(`/api/resumes/pdf-status/${resumeId}`);
+    return response.data;
+  },
+
+  subscribeToPDFUpdates: (onUpdate: (data: any) => void, onError?: (error: Error) => void): EventSource | null => {
+    // Check if we're in browser context
+    if (typeof window === 'undefined') {
+      console.warn('subscribeToPDFUpdates called in non-browser context');
+      return null;
+    }
+
+    // Get token from cookies (same as other API calls)
+    const token = Cookies.get('token');
+    if (!token) {
+      console.error('No authentication token found for SSE connection');
+      if (onError) {
+        onError(new Error('No authentication token available'));
+      }
+      return null;
+    }
+
+    const baseURL = getApiBaseUrl();
+
+    // EventSource doesn't support custom headers, so we pass token as query param
+    const url = `${baseURL}/api/resumes/pdf-updates?token=${encodeURIComponent(token)}`;
+
+    console.log('Establishing SSE connection to:', url.replace(/token=[^&]+/, 'token=***'));
+
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('SSE message received:', data);
+        onUpdate(data);
+      } catch (error) {
+        console.error('Failed to parse SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = () => {
+      // EventSource error events don't provide much detail, but we can check the readyState
+      const readyState = eventSource.readyState;
+      const states = {
+        0: 'CONNECTING',
+        1: 'OPEN',
+        2: 'CLOSED'
+      };
+
+      const errorDetails = {
+        readyState: states[readyState as keyof typeof states] || readyState,
+        url: url.replace(/token=[^&]+/, 'token=***'),
+        timestamp: new Date().toISOString()
+      };
+
+      console.error('SSE connection error:', errorDetails);
+
+      // Only call onError if connection is permanently closed
+      if (readyState === EventSource.CLOSED) {
+        console.error('SSE connection closed. This could be due to:');
+        console.error('1. Network connectivity issues');
+        console.error('2. CORS configuration problems');
+        console.error('3. Backend server not running');
+        console.error('4. Authentication token expired or invalid');
+
+        if (onError) {
+          onError(new Error(`SSE connection failed (state: ${states[readyState as keyof typeof states]})`));
+        }
+      }
+    };
+
+    eventSource.onopen = () => {
+      console.log('SSE connection opened successfully');
+    };
+
+    return eventSource;
+  },
+
+  convertLatexToPDF: async (latexCode: string) => {
+    const response = await api.post('/api/latex/convert', {
+      latexContent: latexCode
+    }, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  validateLatex: async (latexCode: string) => {
+    const response = await api.post('/api/latex/validate', {
+      latexContent: latexCode
     });
     return response.data;
   },

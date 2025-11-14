@@ -153,10 +153,10 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading account settings...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading account settings...</p>
         </div>
       </div>
     );
@@ -165,14 +165,14 @@ export default function AccountPage() {
   // Error state - when profile couldn't be loaded
   if (!loading && !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to load account data</h2>
-          <p className="text-gray-600 mb-4">Please try refreshing the page or contact support if the problem persists.</p>
+          <div className="text-red-500 dark:text-red-400 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Unable to load account data</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Please try refreshing the page or contact support if the problem persists.</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
           >
             Refresh Page
           </button>
@@ -182,23 +182,23 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
-            <p className="text-gray-600">Manage your account information and preferences</p>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Account Settings</h1>
+            <p className="text-gray-600 dark:text-gray-400">Manage your account information and preferences</p>
           </div>
 
           {/* Tab Navigation */}
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="-mb-px flex">
               <button
                 onClick={() => setActiveTab('profile')}
                 className={`py-4 px-6 text-sm font-medium border-b-2 ${
                   activeTab === 'profile'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <User className="inline-block w-4 h-4 mr-2" />
@@ -208,8 +208,8 @@ export default function AccountPage() {
                 onClick={() => setActiveTab('password')}
                 className={`py-4 px-6 text-sm font-medium border-b-2 ${
                   activeTab === 'password'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <Lock className="inline-block w-4 h-4 mr-2" />
@@ -222,33 +222,33 @@ export default function AccountPage() {
             {activeTab === 'profile' && (
               <div className="space-y-6">
                 {/* Account Information */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Account Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <label className="block text-gray-600">Email</label>
-                      <p className="font-medium">{profile?.email}</p>
+                      <label className="block text-gray-600 dark:text-gray-400">Email</label>
+                      <p className="font-medium text-gray-900 dark:text-white">{profile?.email}</p>
                     </div>
                     <div>
-                      <label className="block text-gray-600">Account Status</label>
+                      <label className="block text-gray-600 dark:text-gray-400">Account Status</label>
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        profile?.account_status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
+                        profile?.account_status === 'active'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
                       }`}>
                         {profile?.account_status?.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
                     <div>
-                      <label className="block text-gray-600">Member Since</label>
-                      <p className="font-medium">
+                      <label className="block text-gray-600 dark:text-gray-400">Member Since</label>
+                      <p className="font-medium text-gray-900 dark:text-white">
                         {profile?.created_at && formatDateInTimezone(profile.created_at, profile.timezone, 'medium')}
                       </p>
                     </div>
                     {profile?.approved_at && (
                       <div>
-                        <label className="block text-gray-600">Approved At</label>
-                        <p className="font-medium">
+                        <label className="block text-gray-600 dark:text-gray-400">Approved At</label>
+                        <p className="font-medium text-gray-900 dark:text-white">
                           {formatDateInTimezone(profile.approved_at, profile.timezone, 'medium')}
                         </p>
                       </div>
@@ -260,7 +260,7 @@ export default function AccountPage() {
                 <form onSubmit={handleProfileUpdate} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         First Name
                       </label>
                       <input
@@ -268,13 +268,13 @@ export default function AccountPage() {
                         id="firstName"
                         value={profileForm.firstName}
                         onChange={(e) => setProfileForm({...profileForm, firstName: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
                         required
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Last Name
                       </label>
                       <input
@@ -282,14 +282,14 @@ export default function AccountPage() {
                         id="lastName"
                         value={profileForm.lastName}
                         onChange={(e) => setProfileForm({...profileForm, lastName: e.target.value})}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       <Clock className="inline-block w-4 h-4 mr-1" />
                       Timezone
                     </label>
@@ -297,7 +297,7 @@ export default function AccountPage() {
                       id="timezone"
                       value={profileForm.timezone}
                       onChange={(e) => setProfileForm({...profileForm, timezone: e.target.value})}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                       {timezones.map((tz) => (
                         <option key={tz.value} value={tz.value}>
@@ -305,7 +305,7 @@ export default function AccountPage() {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                       All times in the application will be displayed in your selected timezone.
                     </p>
                   </div>
@@ -336,13 +336,13 @@ export default function AccountPage() {
             {activeTab === 'password' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
-                  <p className="text-gray-600">Update your password to keep your account secure.</p>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Change Password</h3>
+                  <p className="text-gray-600 dark:text-gray-400">Update your password to keep your account secure.</p>
                 </div>
 
                 <form onSubmit={handlePasswordChange} className="space-y-6">
                   <div>
-                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Current Password
                     </label>
                     <div className="relative">
@@ -351,12 +351,12 @@ export default function AccountPage() {
                         id="currentPassword"
                         value={passwordForm.currentPassword}
                         onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                        className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
                         required
                       />
                       <button
                         type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500"
                         onClick={() => setShowPasswords({...showPasswords, current: !showPasswords.current})}
                       >
                         {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -365,7 +365,7 @@ export default function AccountPage() {
                   </div>
 
                   <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       New Password
                     </label>
                     <div className="relative">
@@ -374,25 +374,25 @@ export default function AccountPage() {
                         id="newPassword"
                         value={passwordForm.newPassword}
                         onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                        className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
                         required
                         minLength={8}
                       />
                       <button
                         type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500"
                         onClick={() => setShowPasswords({...showPasswords, new: !showPasswords.new})}
                       >
                         {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                       Password must be at least 8 characters with uppercase, lowercase, number, and special character.
                     </p>
                   </div>
 
                   <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Confirm New Password
                     </label>
                     <div className="relative">
@@ -401,12 +401,12 @@ export default function AccountPage() {
                         id="confirmPassword"
                         value={passwordForm.confirmPassword}
                         onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                        className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 dark:placeholder-gray-500"
                         required
                       />
                       <button
                         type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500"
                         onClick={() => setShowPasswords({...showPasswords, confirm: !showPasswords.confirm})}
                       >
                         {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

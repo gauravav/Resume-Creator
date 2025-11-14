@@ -19,9 +19,10 @@ import {
   AlertCircle,
   FileCode
 } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { authApi, getApiBaseUrl } from '@/lib/api';
 import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
 import Layout from '@/components/Layout';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface DashboardStats {
   totalUsers: number;
@@ -75,17 +76,8 @@ export default function AdminDashboard() {
   });
   const [rejectReason, setRejectReason] = useState('');
   const [loadingStates, setLoadingStates] = useState<{[key: string]: boolean}>({});
-  
-  const router = useRouter();
 
-  // Get API base URL
-  const getApiBaseUrl = () => {
-    const isLocalhost = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    return isLocalhost 
-      ? process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200'
-      : process.env.NEXT_PUBLIC_API_URL_PROD || 'http://143.198.11.73:3200';
-  };
+  const router = useRouter();
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -277,14 +269,14 @@ export default function AdminDashboard() {
 
   const getStatusBadge = (status: string) => {
     const classes = {
-      active: 'bg-green-100 text-green-800',
-      pending_approval: 'bg-yellow-100 text-yellow-800',
-      pending_verification: 'bg-blue-100 text-blue-800',
-      rejected: 'bg-red-100 text-red-800'
+      active: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400',
+      pending_approval: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400',
+      pending_verification: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400',
+      rejected: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
     };
-    
+
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${classes[status as keyof typeof classes] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${classes[status as keyof typeof classes] || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}>
         {status.replace('_', ' ')}
       </span>
     );
@@ -315,17 +307,19 @@ export default function AdminDashboard() {
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-4">
                   <Link href="/" className="flex items-center group">
-                    <FileText className="h-8 w-8 text-indigo-400 mr-2 group-hover:text-indigo-300 transition-colors" />
+                    <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2 group-hover:text-indigo-300 dark:group-hover:text-indigo-200 transition-colors" />
                     <span className="text-xl font-bold text-white group-hover:text-indigo-100 transition-colors">Resume Creator</span>
                   </Link>
                   <div className="hidden sm:block">
-                    <span className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    <span className="bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                       Admin Dashboard
                     </span>
                   </div>
                 </div>
-                
-                {user && (
+
+                <div className="flex items-center space-x-3">
+                  <ThemeToggle />
+                  {user && (
                   <div className="relative">
                     <button
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -364,7 +358,8 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </div>
-                )}
+                  )}
+                </div>
               </div>
             </nav>
           </div>
@@ -373,19 +368,19 @@ export default function AdminDashboard() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Messages */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md p-4 mb-6">
               <div className="flex">
                 <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                <p className="text-red-700 text-sm">{error}</p>
+                <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
               </div>
             </div>
           )}
-          
+
           {success && (
-            <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
+            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-md p-4 mb-6">
               <div className="flex">
                 <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
-                <p className="text-green-700 text-sm">{success}</p>
+                <p className="text-green-700 dark:text-green-400 text-sm">{success}</p>
               </div>
             </div>
           )}
@@ -393,52 +388,52 @@ export default function AdminDashboard() {
           {/* Stats Grid */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <Users className="h-8 w-8 text-blue-500 mr-3" />
+                  <Users className="h-8 w-8 text-blue-500 dark:text-blue-400 mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
-                    <p className="text-sm text-gray-500">Total Users</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalUsers}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <UserCheck className="h-8 w-8 text-green-500 mr-3" />
+                  <UserCheck className="h-8 w-8 text-green-500 dark:text-green-400 mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{stats.activeUsers}</p>
-                    <p className="text-sm text-gray-500">Active Users</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activeUsers}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Active Users</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <Clock className="h-8 w-8 text-yellow-500 mr-3" />
+                  <Clock className="h-8 w-8 text-yellow-500 dark:text-yellow-400 mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{stats.pendingApproval}</p>
-                    <p className="text-sm text-gray-500">Pending Approval</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingApproval}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Pending Approval</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <UserX className="h-8 w-8 text-red-500 mr-3" />
+                  <UserX className="h-8 w-8 text-red-500 dark:text-red-400 mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{stats.rejectedUsers}</p>
-                    <p className="text-sm text-gray-500">Rejected</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.rejectedUsers}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Rejected</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <Zap className="h-8 w-8 text-purple-500 mr-3" />
+                  <Zap className="h-8 w-8 text-purple-500 dark:text-purple-400 mr-3" />
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalTokensUsed.toLocaleString()}</p>
-                    <p className="text-sm text-gray-500">Total Tokens</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalTokensUsed.toLocaleString()}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Tokens</p>
                   </div>
                 </div>
               </div>
@@ -467,40 +462,40 @@ export default function AdminDashboard() {
           </div>
 
           {/* Pending Approvals */}
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Pending User Approvals</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Pending User Approvals</h2>
             </div>
             <div className="overflow-x-auto">
               {pendingUsers.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <Clock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No pending approvals</h3>
-                  <p className="text-gray-500">All users have been processed.</p>
+                  <Clock className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No pending approvals</h3>
+                  <p className="text-gray-500 dark:text-gray-400">All users have been processed.</p>
                 </div>
               ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Requested</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {pendingUsers.map((user) => (
                       <tr key={user.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {user.first_name} {user.last_name}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{formatDate(user.approval_requested_at)}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(user.approval_requested_at)}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                           <button
@@ -536,43 +531,43 @@ export default function AdminDashboard() {
           </div>
 
           {/* All Users */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">All Users</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">All Users</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tokens Used</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tokens Used</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Joined</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {allUsers.map((user) => (
                     <tr key={user.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {user.first_name} {user.last_name}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{user.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(user.account_status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           {parseInt(user.total_tokens_used || '0').toLocaleString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{formatDate(user.created_at)}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(user.created_at)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         {parseInt(user.total_tokens_used || '0') > 0 && (
@@ -601,18 +596,18 @@ export default function AdminDashboard() {
         {/* Reject Modal */}
         {rejectModal.isOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                 Reject User: {rejectModal.userName}
               </h3>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Reason for rejection:
                 </label>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   rows={3}
                   placeholder="Please provide a reason for rejection..."
                 />
@@ -623,7 +618,7 @@ export default function AdminDashboard() {
                     setRejectModal({ isOpen: false, userId: null, userName: '' });
                     setRejectReason('');
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Cancel
                 </button>

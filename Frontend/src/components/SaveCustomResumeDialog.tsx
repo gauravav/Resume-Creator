@@ -212,25 +212,25 @@ export default function SaveCustomResumeDialog({
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div 
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" 
+        <div
+          className="fixed inset-0 transition-opacity bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-80"
           onClick={() => {
             console.log('Backdrop clicked - closing dialog');
             onClose();
-          }} 
+          }}
         />
 
-        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg relative z-10">
+        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-lg relative z-10">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900">Save Customized Resume</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Save Customized Resume</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Review the AI-generated changes and save your customized resume
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1"
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1"
             >
               <X className="h-5 w-5" />
             </button>
@@ -238,49 +238,49 @@ export default function SaveCustomResumeDialog({
 
           {/* Base Resume Info */}
           {basedOnResumeName && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Based on</h4>
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 mb-6">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Based on</h4>
               <div className="flex items-center">
-                <FileText className="h-4 w-4 text-gray-600 mr-2" />
-                <span className="text-sm text-gray-700">{basedOnResumeName}</span>
+                <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400 mr-2" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{basedOnResumeName}</span>
               </div>
             </div>
           )}
 
           {/* Changes Summary */}
           <div className="mb-6">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Changes Summary</h4>
-            
+            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Changes Summary</h4>
+
             {hasAnyChanges ? (
               <div className="space-y-3">
                 {Object.entries(changes).map(([section, change]) => {
                   if (!change?.hasChanges) return null;
-                  
+
                   const IconComponent = sectionIcons[section as keyof typeof sectionIcons];
                   const sectionName = sectionNames[section as keyof typeof sectionNames];
-                  
+
                   return (
-                    <div key={section} className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div key={section} className="flex items-start space-x-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
                       <div className="flex-shrink-0">
-                        <IconComponent className="h-4 w-4 text-yellow-600 mt-0.5" />
+                        <IconComponent className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="text-sm font-medium text-yellow-800">{sectionName}</h5>
-                        <p className="text-sm text-yellow-700 mt-1">{change.description}</p>
+                        <h5 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">{sectionName}</h5>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">{change.description}</p>
                       </div>
                       <div className="flex-shrink-0">
-                        <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                        <div className="w-2 h-2 bg-yellow-400 dark:bg-yellow-500 rounded-full animate-pulse" />
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <AlertCircle className="h-5 w-5 text-blue-600 mr-3" />
+              <div className="flex items-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3" />
                 <div>
-                  <h5 className="text-sm font-medium text-blue-800">No Changes Detected</h5>
-                  <p className="text-sm text-blue-700 mt-1">
+                  <h5 className="text-sm font-medium text-blue-800 dark:text-blue-300">No Changes Detected</h5>
+                  <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
                     The AI customization didn&apos;t make any changes to your original resume.
                   </p>
                 </div>
@@ -290,8 +290,8 @@ export default function SaveCustomResumeDialog({
 
           {/* Resume Name Input */}
           <div className="mb-6">
-            <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 mb-2">
-              Resume Name <span className="text-red-500">*</span>
+            <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Resume Name <span className="text-red-500 dark:text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -301,12 +301,12 @@ export default function SaveCustomResumeDialog({
                 setResumeName(e.target.value);
                 if (saveError) setSaveError(''); // Clear error when user starts typing
               }}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               placeholder="Enter a name for this customized resume"
               disabled={isSaving}
             />
             {saveError && (
-              <p className="mt-2 text-sm text-red-600">{saveError}</p>
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{saveError}</p>
             )}
           </div>
 
@@ -315,14 +315,14 @@ export default function SaveCustomResumeDialog({
             <button
               onClick={onClose}
               disabled={isSaving}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving || !resumeName.trim()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 dark:bg-green-600 hover:bg-green-700 dark:hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? (
                 <>

@@ -3,7 +3,9 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const ResumeParser = require('../utils/resumeParser');
 const LLMResumeParser = require('../utils/llmResumeParser');
-const ResumePDF = require('../utils/pdfGenerator');
+const latexService = require('../services/latexService');
+const pdfGenerationService = require('../services/pdfGenerationService');
+const sseManager = require('../services/sseManager');
 const pool = require('../config/database');
 const FileValidator = require('../utils/fileValidator');
 const PathValidator = require('../utils/pathValidator');
@@ -193,25 +195,30 @@ const uploadResume = async (req, res) => {
 const getResumes = async (req, res) => {
   try {
     const query = `
-      SELECT id, resume_file_name, json_file_name, original_name, file_size, is_base_resume, created_at
-      FROM parsed_resumes 
+      SELECT id, resume_file_name, json_file_name, pdf_file_name, pdf_status, pdf_generated_at,
+             original_name, file_size, is_base_resume,
+             created_at AT TIME ZONE 'UTC' as created_at
+      FROM parsed_resumes
       WHERE user_id = $1
       ORDER BY created_at DESC
     `;
     const result = await pool.query(query, [req.user.id]);
-    
+
     const resumes = result.rows.map(row => ({
       id: row.id,
       resumeFileName: row.resume_file_name,
       jsonFileName: row.json_file_name,
+      pdfFileName: row.pdf_file_name,
+      pdfStatus: row.pdf_status || 'pending',
+      pdfGeneratedAt: row.pdf_generated_at ? new Date(row.pdf_generated_at).toISOString() : null,
       originalName: row.original_name,
       size: row.file_size,
       isBaseResume: row.is_base_resume,
-      uploadDate: row.created_at,
+      uploadDate: new Date(row.created_at).toISOString(),
       // Legacy support - keeping fileName for backward compatibility
       fileName: row.resume_file_name
     }));
-    
+
     res.json({ resumes: resumes });
   } catch (error) {
     console.error('Get resumes error:', error);
@@ -325,13 +332,14 @@ const deleteResume = async (req, res) => {
 const getParsedResumes = async (req, res) => {
   try {
     const query = `
-      SELECT id, resume_file_name, json_file_name, original_name, file_size, is_base_resume, created_at
-      FROM parsed_resumes 
+      SELECT id, resume_file_name, json_file_name, original_name, file_size, is_base_resume,
+             created_at AT TIME ZONE 'UTC' as created_at
+      FROM parsed_resumes
       WHERE user_id = $1
       ORDER BY created_at DESC
     `;
     const result = await pool.query(query, [req.user.id]);
-    
+
     const parsedResumes = result.rows.map(row => ({
       id: row.id,
       resumeFileName: row.resume_file_name,
@@ -339,9 +347,9 @@ const getParsedResumes = async (req, res) => {
       originalName: row.original_name,
       fileSize: row.file_size,
       isBaseResume: row.is_base_resume,
-      createdAt: row.created_at
+      createdAt: new Date(row.created_at).toISOString()
     }));
-    
+
     res.json({
       parsedResumes: parsedResumes
     });
@@ -384,19 +392,20 @@ const setBaseResume = async (req, res) => {
 const getBaseResume = async (req, res) => {
   try {
     const query = `
-      SELECT id, resume_file_name, json_file_name, original_name, file_size, created_at
-      FROM parsed_resumes 
+      SELECT id, resume_file_name, json_file_name, original_name, file_size,
+             created_at AT TIME ZONE 'UTC' as created_at
+      FROM parsed_resumes
       WHERE user_id = $1 AND is_base_resume = TRUE
       LIMIT 1
     `;
     const result = await pool.query(query, [req.user.id]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'No base resume found' });
     }
-    
+
     const row = result.rows[0];
-    
+
     // Optionally fetch the parsed data from MinIO
     let parsedData = null;
     try {
@@ -410,7 +419,7 @@ const getBaseResume = async (req, res) => {
     } catch (error) {
       console.error('Error fetching JSON from MinIO:', error);
     }
-    
+
     res.json({
       baseResume: {
         id: row.id,
@@ -418,7 +427,7 @@ const getBaseResume = async (req, res) => {
         jsonFileName: row.json_file_name,
         originalName: row.original_name,
         fileSize: row.file_size,
-        createdAt: row.created_at,
+        createdAt: new Date(row.created_at).toISOString(),
         parsedData: parsedData
       }
     });
@@ -449,31 +458,67 @@ const parseResume = async (req, res) => {
       });
     }
 
-    console.log('Starting LLM resume parsing for:', req.file.originalname);
+    // Get format preference from query params (default: json)
+    const format = req.query.format || 'json';
+
+    if (!['json', 'latex'].includes(format)) {
+      return res.status(400).json({ error: 'Invalid format. Must be "json" or "latex"' });
+    }
+
+    console.log(`Starting LLM resume parsing for: ${req.file.originalname} (format: ${format})`);
 
     // Extract text from file
     const extractedText = await LLMResumeParser.extractText(req.file.buffer, req.file.mimetype);
-    
+
     if (!extractedText || extractedText.trim().length < 50) {
       return res.status(400).json({ error: 'Unable to extract sufficient text from resume' });
     }
 
     console.log('Extracted text length:', extractedText.length);
 
-    // Parse with LLM
-    const parsedData = await LLMResumeParser.parseResumeWithLLM(extractedText, req.user.id);
+    let parsedResult;
+    let structureMetadata;
 
-    console.log('LLM parsing completed successfully');
+    // Extract structure metadata from the resume (works for both formats)
+    console.log('Extracting structure metadata...');
+    try {
+      structureMetadata = await LLMResumeParser.extractStructureMetadata(extractedText, req.user.id);
+      console.log('Structure metadata extraction completed');
+    } catch (structureError) {
+      console.warn('Structure extraction failed, using default structure:', structureError.message);
+      structureMetadata = LLMResumeParser.getDefaultStructureMetadata();
+    }
 
-    res.json({
-      message: 'Resume parsed successfully with LLM',
-      parsedResume: parsedData,
-      originalName: req.file.originalname,
-      size: req.file.size
-    });
+    if (format === 'latex') {
+      // Parse to LaTeX format
+      parsedResult = await LLMResumeParser.parseResumeToLatex(extractedText, req.user.id);
+      console.log('LLM LaTeX parsing completed successfully');
+
+      res.json({
+        message: 'Resume parsed successfully to LaTeX format',
+        parsedResume: parsedResult,
+        structureMetadata,
+        format: 'latex',
+        originalName: req.file.originalname,
+        size: req.file.size
+      });
+    } else {
+      // Parse to JSON format (default)
+      parsedResult = await LLMResumeParser.parseResumeWithLLM(extractedText, req.user.id);
+      console.log('LLM JSON parsing completed successfully');
+
+      res.json({
+        message: 'Resume parsed successfully with LLM',
+        parsedResume: parsedResult,
+        structureMetadata,
+        format: 'json',
+        originalName: req.file.originalname,
+        size: req.file.size
+      });
+    }
   } catch (error) {
     console.error('LLM parse error:', error);
-    res.status(500).json({ error: 'Failed to parse resume with LLM' });
+    res.status(500).json({ error: 'Failed to parse resume with LLM', details: error.message });
   }
 };
 
@@ -487,25 +532,40 @@ const saveParsedResume = async (req, res) => {
       return res.status(400).json({ error: 'Resume name is required' });
     }
 
-    let parsedData;
+    const { resumeName, parsedData, structureMetadata } = req.body;
+    const fileId = uuidv4();
+
+    // Parse and validate JSON data
+    let jsonData;
     try {
-      parsedData = JSON.parse(req.body.parsedData);
+      jsonData = typeof parsedData === 'string' ? JSON.parse(parsedData) : parsedData;
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       return res.status(400).json({ error: 'Invalid JSON in parsed data' });
     }
 
+    // Parse and validate structure metadata
+    let structureData = structureMetadata;
+    if (typeof structureMetadata === 'string') {
+      try {
+        structureData = JSON.parse(structureMetadata);
+      } catch (parseError) {
+        console.warn('Structure metadata parse error, using default:', parseError.message);
+        structureData = LLMResumeParser.getDefaultStructureMetadata();
+      }
+    } else if (!structureMetadata) {
+      console.warn('No structure metadata provided, using default');
+      structureData = LLMResumeParser.getDefaultStructureMetadata();
+    }
+
     // Validate the parsed data has the required structure
-    if (!parsedData.personalInfo || !parsedData.personalInfo.firstName || !parsedData.personalInfo.email) {
+    if (!jsonData.personalInfo || !jsonData.personalInfo.firstName || !jsonData.personalInfo.email) {
       return res.status(400).json({ error: 'Invalid resume data structure - missing required personal information' });
     }
 
-    const { resumeName } = req.body;
-    const fileId = uuidv4();
+    // Save JSON to MinIO
     const jsonFileName = `${req.user.id}/json/${fileId}_parsed.json`;
-    
-    // Upload parsed JSON to MinIO
-    const jsonBuffer = Buffer.from(JSON.stringify(parsedData, null, 2));
+    const jsonBuffer = Buffer.from(JSON.stringify(jsonData, null, 2));
     await minioClient.putObject(
       BUCKET_NAME,
       jsonFileName,
@@ -516,49 +576,50 @@ const saveParsedResume = async (req, res) => {
       }
     );
 
-    // Store metadata in database (no PDF file, just JSON)
+    const fileSize = jsonBuffer.length;
+
+    // Store metadata in database (includes structure metadata)
     const query = `
-      INSERT INTO parsed_resumes (user_id, resume_file_name, json_file_name, original_name, file_size, is_base_resume)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO parsed_resumes (user_id, resume_file_name, json_file_name, original_name, file_size, is_base_resume, structure_metadata)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `;
-    
+
     // Check if this is the user's first resume (make it base by default)
     const countQuery = 'SELECT COUNT(*) as count FROM parsed_resumes WHERE user_id = $1';
     const countResult = await pool.query(countQuery, [req.user.id]);
     const isFirstResume = countResult.rows[0].count == 0;
-    
-    const result = await pool.query(query, [
-      req.user.id, 
-      resumeName, // Use resume name as file name since no PDF is stored
-      jsonFileName, 
-      resumeName, 
-      jsonBuffer.length, // Size of JSON data
-      isFirstResume
-    ]);
 
-    console.log('Resume JSON saved successfully:', {
-      resumeId: result.rows[0]?.id,
+    const result = await pool.query(query, [
+      req.user.id,
+      resumeName, // Use resume name as file name
       jsonFileName,
       resumeName,
-      personalInfo: `${parsedData.personalInfo.firstName} ${parsedData.personalInfo.lastName}`,
-      sections: {
-        education: parsedData.education?.length || 0,
-        experience: parsedData.experience?.length || 0,
-        internships: parsedData.internships?.length || 0,
-        projects: parsedData.projects?.length || 0
-      }
+      fileSize,
+      isFirstResume,
+      JSON.stringify(structureData) // Save structure metadata as JSONB
+    ]);
+
+    const resumeId = result.rows[0]?.id;
+
+    console.log('Resume saved successfully (JSON format):', {
+      resumeId,
+      jsonFileName,
+      resumeName
     });
+
+    // Trigger PDF generation in background
+    pdfGenerationService.triggerPDFGeneration(resumeId, req.user.id, jsonData);
 
     res.json({
       success: true,
-      message: 'Resume data saved successfully',
-      resumeId: result.rows[0]?.id,
+      message: 'Resume data saved successfully. PDF generation started.',
+      resumeId,
       jsonFileName,
       originalName: resumeName,
-      size: jsonBuffer.length,
+      size: fileSize,
       isBaseResume: isFirstResume,
-      parsedData: parsedData
+      pdfStatus: 'pending' // PDF generation is in progress
     });
   } catch (error) {
     console.error('Save parsed resume error:', error);
@@ -753,17 +814,17 @@ const uploadParsedResume = async (req, res) => {
 const getParsedData = async (req, res) => {
   try {
     const { resumeId } = req.params;
-    
+
     // Get resume info from database
     const query = 'SELECT json_file_name FROM parsed_resumes WHERE id = $1 AND user_id = $2';
     const result = await pool.query(query, [resumeId, req.user.id]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Resume not found' });
     }
-    
+
     const { json_file_name } = result.rows[0];
-    
+
     try {
       // Fetch JSON from MinIO
       const jsonStream = await minioClient.getObject(BUCKET_NAME, json_file_name);
@@ -773,12 +834,12 @@ const getParsedData = async (req, res) => {
       }
       const jsonContent = Buffer.concat(chunks).toString();
       const parsedData = JSON.parse(jsonContent);
-      
+
       res.json({
         parsedData: parsedData
       });
     } catch (error) {
-      console.error('Error fetching JSON from MinIO:', error);
+      console.error('Error fetching data from MinIO:', error);
       res.status(500).json({ error: 'Failed to fetch parsed data' });
     }
   } catch (error) {
@@ -791,36 +852,36 @@ const updateParsedData = async (req, res) => {
   try {
     const { resumeId } = req.params;
     const { parsedData, resumeName } = req.body;
-    
+
     // Get resume info from database
     const query = 'SELECT json_file_name, original_name FROM parsed_resumes WHERE id = $1 AND user_id = $2';
     const result = await pool.query(query, [resumeId, req.user.id]);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Resume not found' });
     }
-    
+
     const { json_file_name } = result.rows[0];
-    
+
     try {
       // Update JSON in MinIO
       const jsonBuffer = Buffer.from(JSON.stringify(parsedData, null, 2), 'utf-8');
       await minioClient.putObject(BUCKET_NAME, json_file_name, jsonBuffer, jsonBuffer.length, {
         'Content-Type': 'application/json'
       });
-      
+
       // Update name in database if provided
       if (resumeName) {
         const updateNameQuery = 'UPDATE parsed_resumes SET original_name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3';
         await pool.query(updateNameQuery, [resumeName, resumeId, req.user.id]);
       }
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         message: 'Resume data updated successfully'
       });
     } catch (error) {
-      console.error('Error updating JSON in MinIO:', error);
+      console.error('Error updating data in MinIO:', error);
       res.status(500).json({ error: 'Failed to update parsed data' });
     }
   } catch (error) {
@@ -883,7 +944,7 @@ const customizeResumeForJob = async (req, res) => {
 const generateResumePDF = async (req, res) => {
   try {
     const { resumeId } = req.params;
-    
+
     if (!resumeId) {
       return res.status(400).json({ error: 'Resume ID is required' });
     }
@@ -897,49 +958,140 @@ const generateResumePDF = async (req, res) => {
     }
 
     const resume = result.rows[0];
-    
-    if (!resume.json_file_name) {
-      return res.status(400).json({ error: 'No parsed resume data available for PDF generation' });
+
+    // Check PDF status
+    if (!resume.pdf_file_name || resume.pdf_status !== 'ready') {
+      return res.status(400).json({
+        error: 'PDF not ready for download',
+        pdfStatus: resume.pdf_status || 'pending',
+        message: resume.pdf_status === 'generating'
+          ? 'PDF is being generated. Please try again in a moment.'
+          : resume.pdf_status === 'failed'
+            ? 'PDF generation failed. Please contact support.'
+            : 'PDF generation is pending. Please wait.'
+      });
     }
 
-    // Fetch resume JSON data from MinIO
-    let resumeData;
+    // Fetch pre-generated PDF from MinIO
     try {
-      const jsonStream = await minioClient.getObject(BUCKET_NAME, resume.json_file_name);
+      const pdfStream = await minioClient.getObject(BUCKET_NAME, resume.pdf_file_name);
       const chunks = [];
-      for await (const chunk of jsonStream) {
+      for await (const chunk of pdfStream) {
         chunks.push(chunk);
       }
-      const jsonContent = Buffer.concat(chunks).toString();
-      resumeData = JSON.parse(jsonContent);
+      const pdfBuffer = Buffer.concat(chunks);
+
+      // Get resume data for filename
+      const jsonStream = await minioClient.getObject(BUCKET_NAME, resume.json_file_name);
+      const jsonChunks = [];
+      for await (const chunk of jsonStream) {
+        jsonChunks.push(chunk);
+      }
+      const jsonContent = Buffer.concat(jsonChunks).toString();
+      const resumeData = JSON.parse(jsonContent);
+
+      const fileName = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+
+      res.send(pdfBuffer);
     } catch (error) {
-      console.error('Error fetching resume data from MinIO:', error);
-      return res.status(500).json({ error: 'Failed to fetch resume data' });
+      console.error('Error fetching PDF from MinIO:', error);
+      return res.status(500).json({ error: 'Failed to fetch PDF file' });
     }
-
-    // Validate resume data structure
-    if (!resumeData.personalInfo || !resumeData.personalInfo.firstName) {
-      return res.status(400).json({ error: 'Invalid resume data structure' });
-    }
-
-    // Generate PDF
-    const resumePDF = new ResumePDF();
-    const pdfDoc = await resumePDF.generatePDF(resumeData);
-
-    // Set response headers for PDF download
-    const fileName = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.pdf`;
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.setHeader('Cache-Control', 'no-cache');
-
-    // Stream the PDF directly to the response
-    pdfDoc.pipe(res);
-    pdfDoc.end();
 
   } catch (error) {
-    console.error('PDF generation error:', error);
+    console.error('PDF download error:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to generate PDF', details: error.message });
+      res.status(500).json({ error: 'Failed to download PDF', details: error.message });
+    }
+  }
+};
+
+const checkPDFStatus = async (req, res) => {
+  try {
+    const { resumeId } = req.params;
+
+    if (!resumeId) {
+      return res.status(400).json({ error: 'Resume ID is required' });
+    }
+
+    // Get PDF status from database
+    const query = 'SELECT pdf_status, pdf_file_name, pdf_generated_at FROM parsed_resumes WHERE id = $1 AND user_id = $2';
+    const result = await pool.query(query, [resumeId, req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+
+    const resume = result.rows[0];
+
+    res.json({
+      pdfStatus: resume.pdf_status || 'pending',
+      pdfFileName: resume.pdf_file_name,
+      pdfGeneratedAt: resume.pdf_generated_at ? new Date(resume.pdf_generated_at).toISOString() : null,
+      isReady: resume.pdf_status === 'ready'
+    });
+  } catch (error) {
+    console.error('Check PDF status error:', error);
+    res.status(500).json({ error: 'Failed to check PDF status', details: error.message });
+  }
+};
+
+// SSE endpoint for real-time PDF status updates
+const subscribePDFUpdates = (req, res) => {
+  try {
+    // EventSource doesn't support custom headers, so we get token from query param
+    const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      console.error('SSE: No token provided');
+      res.status(401).send('Unauthorized: No token provided');
+      return;
+    }
+
+    // Verify JWT token manually since middleware isn't applied to this route
+    const jwt = require('jsonwebtoken');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      console.error('SSE: Invalid token', err.message);
+      res.status(401).send('Unauthorized: Invalid token');
+      return;
+    }
+
+    const userId = decoded.userId;
+    console.log('SSE connection established for user:', userId);
+
+    // Set SSE headers before adding to manager
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    // CORS headers for EventSource
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    res.status(200);
+
+    // Add client to SSE manager (which will send initial connection event)
+    sseManager.addClient(userId, res);
+
+    // Handle client disconnect
+    req.on('close', () => {
+      console.log('SSE connection closed for user:', userId);
+      sseManager.removeClient(userId, res);
+    });
+
+  } catch (error) {
+    console.error('SSE subscription error:', error);
+    if (!res.headersSent) {
+      res.status(500).send('Internal server error');
     }
   }
 };
@@ -960,4 +1112,6 @@ module.exports = {
   updateParsedData,
   customizeResumeForJob,
   generateResumePDF,
+  checkPDFStatus,
+  subscribePDFUpdates,
 };

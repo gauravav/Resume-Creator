@@ -1,14 +1,31 @@
 const axios = require('axios');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
+const path = require('path');
 const geminiService = require('../services/geminiService');
 const deepseekService = require('../services/deepseekService');
+const WorkerPool = require('../workers/workerPool');
+const {
+  createResumeParsingPrompt,
+  createResumeCustomizationPrompt,
+  createResponsibilityRewritePrompt,
+  createLatexParsingPrompt,
+  createLatexToJsonPrompt,
+  createJsonToLatexPrompt,
+  createLatexFixPrompt,
+  createResumeStructureExtractionPrompt
+} = require('../prompts');
 
 // Helper function to estimate token count (rough approximation)
 const estimateTokenCount = (text) => {
   // Rough estimate: 1 token ≈ 4 characters on average
   return Math.ceil(text.length / 4);
 };
+
+// Initialize worker pool for text extraction (CPU-intensive operations)
+const textExtractionWorkerPool = new WorkerPool(
+  path.join(__dirname, '../workers/textExtractor.worker.js')
+);
 
 class LLMResumeParser {
   constructor() {
@@ -18,6 +35,9 @@ class LLMResumeParser {
     // LM Studio Configuration (Local)
     this.llmApiUrl = process.env.LLM_API_URL || 'http://localhost:1234/v1';
     this.modelName = process.env.LLM_MODEL_NAME || 'deepseek-r1-distill-qwen-32b';
+
+    // Reference to the shared worker pool
+    this.workerPool = textExtractionWorkerPool;
 
     console.log(`🤖 LLM Provider: ${this.provider === 'cloud' ? 'DeepSeek Cloud' : 'LM Studio Local'}`);
   }
@@ -64,24 +84,45 @@ class LLMResumeParser {
 
   async extractText(buffer, mimeType) {
     try {
-      let text = '';
-      
-      if (mimeType === 'application/pdf') {
-        const data = await pdfParse(buffer);
-        text = data.text;
-      } else if (mimeType === 'application/msword') {
-        // For .doc files (older format)
-        text = buffer.toString('utf8');
-      } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        // For .docx files
-        const result = await mammoth.extractRawText({buffer});
-        text = result.value;
-      }
-      
+      // Use worker pool for CPU-intensive text extraction
+      // This prevents blocking the main event loop during PDF/DOCX parsing
+      const startTime = Date.now();
+      console.log(`📄 Starting text extraction using worker pool (MIME: ${mimeType})`);
+
+      const text = await this.workerPool.execute({
+        buffer: Array.from(buffer), // Convert Buffer to array for worker transfer
+        mimeType
+      });
+
+      const duration = Date.now() - startTime;
+      const stats = this.workerPool.getStats();
+      console.log(`✅ Text extraction completed in ${duration}ms`);
+      console.log(`📊 Worker Pool Stats:`, stats);
+
       return text;
     } catch (error) {
       console.error('Text extraction error:', error);
-      return '';
+
+      // Fallback to synchronous extraction if worker fails
+      console.warn('⚠️ Falling back to synchronous text extraction');
+      try {
+        let text = '';
+
+        if (mimeType === 'application/pdf') {
+          const data = await pdfParse(buffer);
+          text = data.text;
+        } else if (mimeType === 'application/msword') {
+          text = buffer.toString('utf8');
+        } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          const result = await mammoth.extractRawText({buffer});
+          text = result.value;
+        }
+
+        return text;
+      } catch (fallbackError) {
+        console.error('Fallback extraction also failed:', fallbackError);
+        return '';
+      }
     }
   }
 
@@ -97,8 +138,8 @@ class LLMResumeParser {
       console.log('=== RAW PDF TEXT BEING SENT TO LLM ===');
       console.log(resumeText);
       console.log('=== END RAW PDF TEXT ===');
-      
-      const prompt = this.createResumeParsingPrompt(resumeText);
+
+      const prompt = createResumeParsingPrompt(resumeText);
       console.log(`Sending request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
       
       const messages = [
@@ -214,143 +255,6 @@ class LLMResumeParser {
     }
   }
 
-  createResumeParsingPrompt(resumeText) {
-    return `Parse the following resume text and extract structured information. You MUST return a JSON object that follows this EXACT template structure. Do not deviate from this format:
-
-TEMPLATE TO FOLLOW STRICTLY:
-{
-  "personalInfo": {
-    "firstName": "",
-    "lastName": "",
-    "location": {
-      "city": "",
-      "state": "",
-      "country": "",
-      "remote": false
-    },
-    "email": "",
-    "phone": "",
-    "website": "",
-    "socialMedia": {
-      "linkedin": "",
-      "github": ""
-    }
-  },
-  "summary": "",
-  "education": [
-    {
-      "institution": "",
-      "degree": "",
-      "major": "",
-      "duration": {
-        "start": {
-          "month": "",
-          "year": null,
-          "day": null
-        },
-        "end": {
-          "month": "",
-          "year": null,
-          "day": null
-        }
-      },
-      "coursework": []
-    }
-  ],
-  "experience": [
-    {
-      "position": "",
-      "company": "",
-      "location": {
-        "city": "",
-        "state": "",
-        "country": "",
-        "remote": false
-      },
-      "duration": {
-        "start": {
-          "month": "",
-          "year": null,
-          "day": null
-        },
-        "end": {
-          "month": "",
-          "year": null,
-          "day": null
-        }
-      },
-      "responsibilities": []
-    }
-  ],
-  "internships": [
-    {
-      "position": "",
-      "company": "",
-      "location": {
-        "city": "",
-        "state": "",
-        "country": "",
-        "remote": false
-      },
-      "duration": {
-        "start": {
-          "month": "",
-          "year": null,
-          "day": null
-        },
-        "end": {
-          "month": "",
-          "year": null,
-          "day": null
-        }
-      },
-      "responsibilities": []
-    }
-  ],
-  "projects": [
-    {
-      "name": "",
-      "description": [],
-      "toolsUsed": []
-    }
-  ],
-  "technologies": {
-    "languages": [],
-    "backend": [],
-    "frontend": [],
-    "databases": {
-      "sql": [],
-      "nosql": []
-    },
-    "cloudAndDevOps": [],
-    "cicdAndAutomation": [],
-    "testingAndDebugging": []
-  }
-}
-
-PARSING INSTRUCTIONS:
-1. Use the above template structure EXACTLY - do not add, remove, or rename any fields
-2. Fill in the empty strings and arrays with extracted data from the resume
-3. Split full names: "John Doe" becomes firstName: "John", lastName: "Doe"
-4. For dates: use month names (e.g., "January") and 4-digit years, set day to null
-5. For current positions: leave end month empty "", but include current year
-6. Set remote: true only if location explicitly mentions remote work
-7. Categorize technologies properly:
-   - languages: Python, Java, JavaScript, C++, etc.
-   - backend: Node.js, Express, Django, Spring Boot, etc.
-   - frontend: React, Vue, Angular, HTML, CSS, etc.
-   - databases.sql: PostgreSQL, MySQL, SQL Server, etc.
-   - databases.nosql: MongoDB, Redis, Cassandra, etc.
-   - cloudAndDevOps: AWS, Azure, Docker, Kubernetes, etc.
-   - cicdAndAutomation: GitHub Actions, Jenkins, GitLab CI, etc.
-   - testingAndDebugging: Jest, Mocha, Cypress, Selenium, etc.
-
-8. If no data is found for a section, use empty arrays [] or empty strings ""
-9. Return ONLY the JSON object with no additional text, explanations, or comments
-
-Resume text to parse:
-${resumeText}`;
-  }
 
   cleanJsonString(jsonString) {
     // Remove any trailing commas before closing brackets/braces
@@ -423,6 +327,13 @@ ${resumeText}`;
       remote: location?.remote || false
     });
 
+    // Helper function to clean responsibilities (remove empty entries)
+    const cleanResponsibilities = (responsibilities) => {
+      return Array.isArray(responsibilities)
+        ? responsibilities.filter(r => r && r.trim())
+        : [];
+    };
+
     // Ensure all required fields exist with defaults
     const normalized = {
       personalInfo: {
@@ -437,7 +348,7 @@ ${resumeText}`;
           github: data.personalInfo?.socialMedia?.github || ""
         }
       },
-      summary: data.summary || "",
+      summary: Array.isArray(data.summary) ? data.summary : (typeof data.summary === 'string' && data.summary.trim() ? [data.summary] : []),
       education: Array.isArray(data.education) ? data.education.map(edu => ({
         institution: edu.institution || "",
         degree: edu.degree || "",
@@ -450,32 +361,24 @@ ${resumeText}`;
         company: exp.company || "",
         location: ensureLocation(exp.location),
         duration: ensureDuration(exp.duration),
-        responsibilities: Array.isArray(exp.responsibilities) ? exp.responsibilities : []
+        responsibilities: cleanResponsibilities(exp.responsibilities)
       })) : [],
       internships: Array.isArray(data.internships) ? data.internships.map(int => ({
         position: int.position || "",
         company: int.company || "",
         location: ensureLocation(int.location),
         duration: ensureDuration(int.duration),
-        responsibilities: Array.isArray(int.responsibilities) ? int.responsibilities : []
+        responsibilities: cleanResponsibilities(int.responsibilities)
       })) : [],
       projects: Array.isArray(data.projects) ? data.projects.map(proj => ({
         name: proj.name || "",
         description: Array.isArray(proj.description) ? proj.description : [],
         toolsUsed: Array.isArray(proj.toolsUsed) ? proj.toolsUsed : []
       })) : [],
-      technologies: {
-        languages: Array.isArray(data.technologies?.languages) ? data.technologies.languages : [],
-        backend: Array.isArray(data.technologies?.backend) ? data.technologies.backend : [],
-        frontend: Array.isArray(data.technologies?.frontend) ? data.technologies.frontend : [],
-        databases: {
-          sql: Array.isArray(data.technologies?.databases?.sql) ? data.technologies.databases.sql : [],
-          nosql: Array.isArray(data.technologies?.databases?.nosql) ? data.technologies.databases.nosql : []
-        },
-        cloudAndDevOps: Array.isArray(data.technologies?.cloudAndDevOps) ? data.technologies.cloudAndDevOps : [],
-        cicdAndAutomation: Array.isArray(data.technologies?.cicdAndAutomation) ? data.technologies.cicdAndAutomation : [],
-        testingAndDebugging: Array.isArray(data.technologies?.testingAndDebugging) ? data.technologies.testingAndDebugging : []
-      }
+      technologies: Array.isArray(data.technologies) ? data.technologies.map(tech => ({
+        category: tech.category || "",
+        items: Array.isArray(tech.items) ? tech.items : []
+      })) : []
     };
 
     return normalized;
@@ -513,18 +416,7 @@ ${resumeText}`;
       experience: [],
       internships: [],
       projects: [],
-      technologies: {
-        languages: [],
-        backend: [],
-        frontend: [],
-        databases: {
-          sql: [],
-          nosql: []
-        },
-        cloudAndDevOps: [],
-        cicdAndAutomation: [],
-        testingAndDebugging: []
-      }
+      technologies: []
     };
   }
 
@@ -650,7 +542,7 @@ ${resumeText}`;
         throw new Error('Invalid resume data provided');
       }
       
-      const prompt = this.createResumeCustomizationPrompt(resumeData, jobDescription);
+      const prompt = createResumeCustomizationPrompt(resumeData, jobDescription);
       console.log(`Sending customization request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
       
       const messages = [
@@ -747,74 +639,15 @@ ${resumeText}`;
     }
   }
 
-  createResumeCustomizationPrompt(resumeData, jobDescription) {
-    return `You are an expert resume optimizer. I need you to modify ONLY specific sections of the following resume to better match a job opportunity.
-
-JOB DESCRIPTION:
-${jobDescription}
-
-CURRENT RESUME DATA:
-${JSON.stringify(resumeData, null, 2)}
-
-TARGETED CUSTOMIZATION INSTRUCTIONS:
-1. Keep the EXACT same JSON structure and format - do not add, remove, or rename any fields
-2. Analyze the job description and identify key requirements, skills, and keywords
-3. ONLY modify these THREE sections (leave everything else unchanged):
-
-   A. SUMMARY SECTION:
-   - Rewrite the "summary" field to highlight relevant experience for this specific role
-   - Use keywords from the job description
-   - Emphasize skills and experience that match the job requirements
-   - Keep it concise and impactful (2-3 sentences)
-
-   B. WORK EXPERIENCE RESPONSIBILITIES:
-   - Modify ONLY the "responsibilities" arrays within the "experience" section
-   - Reorder and rewrite bullet points to emphasize relevant achievements
-   - Use action verbs and quantifiable results where possible
-   - Highlight technologies, skills, and accomplishments that match the job
-   - Do NOT change position titles, company names, dates, or locations
-
-   C. TECHNOLOGIES SECTION:
-   - Reorder the technology arrays to put most relevant technologies first
-   - Ensure technologies mentioned in the job description are prominently placed
-   - Do NOT add technologies that weren't already in the original resume
-   - Do NOT remove existing technologies, only reorder them
-
-4. CRITICAL CONSTRAINTS:
-   - Do NOT modify personal information, education, project details, internships, or any other sections
-   - Do NOT fabricate new experiences, skills, or technologies
-   - Do NOT change company names, job titles, dates, or educational institutions
-   - Only enhance and reorder existing content within the specified sections
-
-5. Return ONLY the complete modified JSON resume data - no explanations or additional text
-
-Focus on making the summary, work experience points, and technology ordering highly relevant to this job opportunity:`;
-  }
 
   async rewriteResponsibility(originalText, userPrompt, userId = null) {
     try {
       console.log('=== RESPONSIBILITY REWRITE DEBUG ===');
       console.log('Original text:', originalText);
       console.log('User prompt:', userPrompt);
-      
-      const prompt = `You are an expert resume writer. Your task is to rewrite a single responsibility/bullet point from a resume based on the user's specific instructions.
 
-ORIGINAL TEXT:
-"${originalText}"
+      const prompt = createResponsibilityRewritePrompt(originalText, userPrompt);
 
-USER'S REWRITE INSTRUCTIONS:
-"${userPrompt}"
-
-GUIDELINES:
-1. Follow the user's instructions precisely
-2. Keep it as a single bullet point (don't create multiple points)
-3. Use strong action verbs and quantifiable results when possible
-4. Make it concise and impactful
-5. Maintain professional resume language
-6. If the user asks for specific improvements (like adding metrics, making it more action-oriented, etc.), implement those changes
-
-Return ONLY the rewritten bullet point - no explanations or additional text.`;
-      
       const messages = [
         {
           role: "user",
@@ -827,10 +660,10 @@ Return ONLY the rewritten bullet point - no explanations or additional text.`;
         temperature: 0.7,
         maxTokens: 200
       });
-      
+
       const rewrittenText = response.content;
       console.log('LLM rewrite response:', rewrittenText);
-        
+
         // Track token usage if userId is provided
         if (userId && response.usage) {
           const tokensUsed = response.usage.total_tokens || estimateTokenCount(prompt + rewrittenText);
@@ -847,18 +680,330 @@ Return ONLY the rewritten bullet point - no explanations or additional text.`;
             console.error('Failed to record token usage:', tokenError);
           }
         }
-        
+
         // Clean up the response - remove any quotes or extra formatting
         let cleanedText = rewrittenText.replace(/^["'](.*)["']$/, '$1').trim();
-        
+
         // Remove bullet point markers if they were added
         cleanedText = cleanedText.replace(/^[•\-\*]\s*/, '').trim();
-        
+
         return cleanedText;
     } catch (error) {
       console.error('LLM responsibility rewrite error:', error);
       throw new Error(`Failed to rewrite responsibility: ${error.message}`);
     }
+  }
+
+  async parseResumeToLatex(resumeText, userId = null) {
+    try {
+      console.log('=== LLM LATEX PARSING DEBUG ===');
+      console.log('Provider:', this.provider === 'cloud' ? 'DeepSeek Cloud' : 'LM Studio Local');
+      if (this.provider === 'local') {
+        console.log('LLM API URL:', this.llmApiUrl);
+        console.log('Model Name:', this.modelName);
+      }
+      console.log('Resume text length:', resumeText.length);
+
+      const prompt = createLatexParsingPrompt(resumeText);
+      console.log(`Sending LaTeX parsing request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
+
+      const messages = [
+        {
+          role: "system",
+          content: "You are an expert resume formatter. Convert resumes to professional LaTeX format. Return ONLY valid LaTeX code. Do not include any explanation or additional text outside the LaTeX code."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ];
+
+      console.log('Request payload prepared, making HTTP request...');
+
+      const response = await this.callLLM(messages, {
+        temperature: 0.1,
+        maxTokens: 12000
+      });
+
+      console.log(`${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'} responded successfully`);
+
+      const llmResponse = response.content;
+
+      // Track token usage if userId is provided
+      if (userId && response.usage) {
+        const tokensUsed = response.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
+        try {
+          const { recordTokenUsage } = require('../controllers/tokenController');
+          await recordTokenUsage(userId, 'resume_parsing_latex', tokensUsed, {
+            operation: 'parse_resume_to_latex',
+            input_length: resumeText.length,
+            response_length: llmResponse.length
+          });
+          console.log(`✅ Recorded ${tokensUsed} tokens for LaTeX resume parsing`);
+        } catch (tokenError) {
+          console.error('Failed to record token usage:', tokenError);
+        }
+      }
+
+      console.log('=== LLM LATEX OUTPUT ===');
+      console.log('Raw LLM Response:', llmResponse.substring(0, 500) + '...');
+
+      // Extract LaTeX code from response (in case there's extra text)
+      let latexCode = llmResponse;
+
+      // Try to extract LaTeX if wrapped in code blocks
+      const latexMatch = llmResponse.match(/\\documentclass[\s\S]*\\end\{document\}/);
+      if (latexMatch) {
+        latexCode = latexMatch[0];
+      } else {
+        // Remove markdown code block markers if present
+        latexCode = llmResponse.replace(/```latex\n?/g, '').replace(/```\n?/g, '').trim();
+      }
+
+      // Validate LaTeX structure
+      if (!latexCode.includes('\\documentclass') || !latexCode.includes('\\begin{document}') || !latexCode.includes('\\end{document}')) {
+        throw new Error('Invalid LaTeX structure: Missing required LaTeX document elements');
+      }
+
+      console.log('✅ Successfully parsed resume to LaTeX');
+      return latexCode;
+
+    } catch (error) {
+      console.error('=== LLM LATEX PARSING ERROR ===');
+      console.error('Error type:', error.name);
+      console.error('Error message:', error.message);
+
+      if (error.code === 'ECONNABORTED') {
+        console.error(`❌ CONNECTION TIMEOUT - The ${this.provider === 'cloud' ? 'DeepSeek API' : 'LLM service'} took too long to respond`);
+      } else if (error.code === 'ECONNREFUSED') {
+        console.error(`❌ CONNECTION REFUSED - Cannot connect to ${this.provider === 'cloud' ? 'DeepSeek API' : 'LLM service'}`);
+      } else if (error.response) {
+        console.error('HTTP Status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+
+      throw error;
+    }
+  }
+
+
+  // Convert LaTeX code to JSON structure for editing
+  async latexToJson(latexCode) {
+    const prompt = createLatexToJsonPrompt(latexCode);
+
+    const messages = [
+      { role: 'user', content: prompt }
+    ];
+
+    const response = await this.callLLM(messages, {
+      temperature: 0.1,
+      maxTokens: 8000
+    });
+
+    try {
+      // Extract content from response object
+      const responseText = typeof response === 'string' ? response : response.content;
+
+      // Clean the response to get pure JSON
+      let jsonText = responseText.trim();
+      // Remove markdown code blocks if present
+      jsonText = jsonText.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+      jsonText = jsonText.trim();
+
+      const parsedData = JSON.parse(jsonText);
+      return parsedData;
+    } catch (error) {
+      console.error('Failed to parse LaTeX to JSON:', error);
+      throw new Error('Failed to convert LaTeX to JSON format');
+    }
+  }
+
+  // Convert JSON structure back to LaTeX code
+  async jsonToLatex(jsonData, structureMetadata = null) {
+    // Read the LaTeX template
+    const fs = require('fs');
+    const path = require('path');
+    const templatePath = path.join(__dirname, '../templates/latexTemplate.tex');
+    const latexTemplate = fs.readFileSync(templatePath, 'utf-8');
+
+    const prompt = createJsonToLatexPrompt(jsonData, latexTemplate, structureMetadata);
+
+    const messages = [
+      { role: 'user', content: prompt }
+    ];
+
+    const response = await this.callLLM(messages, {
+      temperature: 0.1,
+      maxTokens: 12000
+    });
+
+    // Extract content from response object
+    const responseText = typeof response === 'string' ? response : response.content;
+
+    // Clean the response to get pure LaTeX
+    let latexCode = responseText.trim();
+    // Remove markdown code blocks if present
+    latexCode = latexCode.replace(/^```latex\s*\n?/i, '').replace(/^```\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+    latexCode = latexCode.trim();
+
+    return {
+      latexCode: latexCode,
+      usage: response.usage
+    };
+  }
+
+  // Fix LaTeX compilation errors using LLM
+  async fixLatexErrors(buggyLatexCode, compilationError) {
+    const prompt = createLatexFixPrompt(buggyLatexCode, compilationError);
+
+    const messages = [
+      { role: 'user', content: prompt }
+    ];
+
+    const response = await this.callLLM(messages, {
+      temperature: 0.1,
+      maxTokens: 12000
+    });
+
+    // Extract content from response object
+    const responseText = typeof response === 'string' ? response : response.content;
+
+    // Clean the response to get pure LaTeX
+    let latexCode = responseText.trim();
+    // Remove markdown code blocks if present
+    latexCode = latexCode.replace(/^```latex\s*\n?/i, '').replace(/^```\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+    latexCode = latexCode.trim();
+
+    return {
+      latexCode: latexCode,
+      usage: response.usage
+    };
+  }
+
+  // Extract structure metadata from resume text
+  async extractStructureMetadata(resumeText, userId = null) {
+    try {
+      console.log('=== STRUCTURE METADATA EXTRACTION DEBUG ===');
+      console.log('Provider:', this.provider === 'cloud' ? 'DeepSeek Cloud' : 'LM Studio Local');
+      console.log('Resume text length:', resumeText.length);
+
+      const prompt = createResumeStructureExtractionPrompt(resumeText);
+      console.log(`Sending structure extraction request to ${this.provider === 'cloud' ? 'DeepSeek' : 'LM Studio'}...`);
+
+      const messages = [
+        {
+          role: "system",
+          content: "You are an expert at analyzing resume layouts and structure. Extract structural information from resumes and return ONLY valid JSON format. Do not include any explanation or additional text outside the JSON."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ];
+
+      const response = await this.callLLM(messages, {
+        temperature: 0.1,
+        maxTokens: 4000
+      });
+
+      const llmResponse = response.content;
+
+      // Track token usage if userId is provided
+      if (userId && response.usage) {
+        const tokensUsed = response.usage.total_tokens || estimateTokenCount(prompt + llmResponse);
+        try {
+          const { recordTokenUsage } = require('../controllers/tokenController');
+          await recordTokenUsage(userId, 'structure_extraction', tokensUsed, {
+            operation: 'extract_resume_structure',
+            input_length: resumeText.length,
+            response_length: llmResponse.length
+          });
+          console.log(`✅ Recorded ${tokensUsed} tokens for structure extraction`);
+        } catch (tokenError) {
+          console.error('Failed to record token usage:', tokenError);
+        }
+      }
+
+      console.log('=== LLM STRUCTURE METADATA OUTPUT ===');
+      console.log('Raw LLM Response:', llmResponse);
+
+      // Extract JSON from response
+      const jsonMatch = llmResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        let jsonString = jsonMatch[0];
+        jsonString = this.cleanJsonString(jsonString);
+
+        try {
+          const structureMetadata = JSON.parse(jsonString);
+          console.log('✅ Successfully parsed structure metadata JSON');
+          console.log('Structure metadata:', JSON.stringify(structureMetadata, null, 2));
+          return structureMetadata;
+        } catch (parseError) {
+          console.error('❌ JSON Parse Error:', parseError.message);
+          console.log('⚠️  Falling back to default structure...');
+          return this.getDefaultStructureMetadata();
+        }
+      } else {
+        console.warn('No valid JSON found in structure extraction response');
+        return this.getDefaultStructureMetadata();
+      }
+
+    } catch (error) {
+      console.error('=== STRUCTURE EXTRACTION ERROR ===');
+      console.error('Error type:', error.name);
+      console.error('Error message:', error.message);
+      console.log('⚠️  Falling back to default structure...');
+      return this.getDefaultStructureMetadata();
+    }
+  }
+
+  // Get default structure metadata
+  getDefaultStructureMetadata() {
+    return {
+      sectionOrder: ["summary", "experience", "education", "projects", "technologies"],
+      sectionTitles: {
+        summary: "Summary",
+        experience: "Experience",
+        education: "Education",
+        projects: "Projects",
+        technologies: "Technologies"
+      },
+      layout: {
+        style: "single-column",
+        headerStyle: "centered",
+        margins: {
+          top: "2cm",
+          bottom: "2cm",
+          left: "2cm",
+          right: "2cm"
+        }
+      },
+      formatting: {
+        fonts: {
+          main: "Charter",
+          heading: "Charter-Bold"
+        },
+        fontSize: {
+          name: "25pt",
+          section: "14pt",
+          body: "10pt"
+        },
+        colors: {
+          primary: "RGB(0,0,0)",
+          accent: "RGB(0,0,0)"
+        },
+        spacing: {
+          sectionGap: "0.3cm",
+          itemGap: "0.2cm"
+        },
+        bulletStyle: "bullet"
+      },
+      visualElements: {
+        useSectionLines: true,
+        useHeaderLine: false,
+        contactLayout: "horizontal"
+      }
+    };
   }
 }
 

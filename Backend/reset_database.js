@@ -28,6 +28,11 @@ async function resetDatabase() {
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         resume_file_name VARCHAR(255),
         json_file_name VARCHAR(255) NOT NULL,
+        latex_file_name VARCHAR(255),
+        pdf_file_name VARCHAR(255),
+        pdf_status VARCHAR(20) DEFAULT 'pending' CHECK (pdf_status IN ('pending', 'generating', 'ready', 'failed')),
+        pdf_generated_at TIMESTAMP,
+        format_type VARCHAR(20) DEFAULT 'json' CHECK (format_type IN ('json', 'latex')),
         original_name VARCHAR(255) NOT NULL,
         file_size BIGINT NOT NULL,
         is_base_resume BOOLEAN DEFAULT FALSE,
@@ -75,11 +80,12 @@ async function resetDatabase() {
       console.log(`  ${row.column_name}: ${row.data_type} ${row.is_nullable === 'NO' ? '(NOT NULL)' : '(NULLABLE)'}`);
     });
     
-    console.log('\n🎉 Ready for fresh uploads with new JSON storage in MinIO!');
+    console.log('\n🎉 Ready for fresh uploads with JSON and LaTeX support!');
     console.log('💡 All uploaded resumes will now:');
     console.log('   - Store raw files in MinIO at: {userId}/resumes/{uuid}_{filename}');
     console.log('   - Store JSON data in MinIO at: {userId}/json/{uuid}_parsed.json');
-    console.log('   - Track metadata in PostgreSQL');
+    console.log('   - Store LaTeX files in MinIO at: {userId}/latex/{uuid}_resume.tex');
+    console.log('   - Track format (json/latex) and metadata in PostgreSQL');
     
   } catch (error) {
     await client.query('ROLLBACK');

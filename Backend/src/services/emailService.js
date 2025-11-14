@@ -542,6 +542,123 @@ class EmailService {
     }
   }
 
+  async sendServerStartupFailureNotification(port, environment, errorDetails) {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const timestamp = new Date().toLocaleString();
+    const fromEmail = this.getFromEmail();
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">🛑 Server Startup Failed</h1>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+          <h2 style="color: #333; margin-bottom: 20px;">Resume Builder API Server</h2>
+
+          <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px;">
+            <p style="color: #856404; margin: 0; font-weight: bold;">
+              ⚠️ The server failed to start. Please review the errors below and take action.
+            </p>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">Status:</td>
+              <td style="padding: 10px 0; color: #dc3545; font-weight: bold;">❌ Failed</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">Port:</td>
+              <td style="padding: 10px 0; color: #333;">${port}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">Environment:</td>
+              <td style="padding: 10px 0; color: #333;">${environment || 'development'}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">Failed At:</td>
+              <td style="padding: 10px 0; color: #333;">${timestamp}</td>
+            </tr>
+          </table>
+
+          <h3 style="color: #333; margin-top: 30px; margin-bottom: 15px;">System Check Results:</h3>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">Database Connection:</td>
+              <td style="padding: 10px 0;">${errorDetails.databaseConnection}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">Database Initialization:</td>
+              <td style="padding: 10px 0;">${errorDetails.databaseInitialization}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px 0; font-weight: bold; color: #555;">File Storage (MinIO):</td>
+              <td style="padding: 10px 0;">${errorDetails.fileStorage}</td>
+            </tr>
+          </table>
+
+          <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0;">
+            <h4 style="color: #721c24; margin-top: 0;">Error Details:</h4>
+            <pre style="color: #721c24; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; background: white; padding: 10px; border-radius: 5px; overflow-x: auto;">${errorDetails.errors || 'No specific error details available'}</pre>
+          </div>
+
+          <div style="background: #d1ecf1; border-left: 4px solid #0c5460; padding: 15px; margin: 20px 0;">
+            <h4 style="color: #0c5460; margin-top: 0;">Recommended Actions:</h4>
+            <ol style="color: #0c5460; margin: 0; padding-left: 20px;">
+              <li>Check if PostgreSQL database is running</li>
+              <li>Verify database connection credentials in .env file</li>
+              <li>Ensure MinIO server is running on the configured port</li>
+              <li>Review the server logs for more details</li>
+              <li>Fix the reported errors and restart the server</li>
+            </ol>
+          </div>
+
+          <hr style="border: none; height: 1px; background: #ddd; margin: 25px 0;">
+
+          <p style="color: #888; font-size: 12px; text-align: center;">
+            This is an automated notification from your Resume Builder server.<br>
+            Timestamp: ${errorDetails.timestamp}
+          </p>
+        </div>
+      </div>
+    `;
+
+    const mailOptions = {
+      to: adminEmail,
+      from: this.emailService === 'gmail' ? `"${fromEmail.name}" <${fromEmail.email}>` : fromEmail,
+      subject: `🛑 URGENT: Resume Builder Server Failed to Start - Port ${port}`,
+      html: htmlContent
+    };
+
+    // Add sandbox mode for SendGrid in development
+    if (this.emailService === 'sendgrid' && process.env.NODE_ENV === 'development') {
+      mailOptions.mail_settings = {
+        sandbox_mode: {
+          enable: true
+        }
+      };
+    }
+
+    try {
+      const result = await this.sendEmail(mailOptions);
+      logger.info('Server startup failure notification sent', {
+        service: this.emailService,
+        to: adminEmail,
+        port: port,
+        messageId: result.messageId
+      });
+      return result;
+    } catch (error) {
+      logger.error('Failed to send server startup failure notification', {
+        service: this.emailService,
+        to: adminEmail,
+        error: error.message
+      });
+      return { success: false, error: error.message };
+    }
+  }
+
   getErrorSuggestions(errorCode) {
     if (this.emailService === 'gmail') {
       const gmailSuggestions = {

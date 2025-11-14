@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  FileText, 
+import {
+  ArrowLeft,
+  FileText,
   Loader2,
   AlertCircle
 } from 'lucide-react';
@@ -14,6 +14,7 @@ import { resumeApi } from '@/lib/api';
 import { ResumeData } from '@/types/resume';
 import EditableResumeForm from '@/components/EditableResumeForm';
 import Layout from '@/components/Layout';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function EditResumePage() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
@@ -33,7 +34,7 @@ export default function EditResumePage() {
       // First get resume metadata
       const resumesResponse = await resumeApi.getAll();
       const resume = resumesResponse.find(r => r.id.toString() === resumeId);
-      
+
       if (!resume) {
         setError('Resume not found');
         return;
@@ -41,9 +42,16 @@ export default function EditResumePage() {
 
       setResumeName(resume.originalName.replace(/\.(pdf|doc|docx)$/i, ''));
 
-      // Then get parsed JSON data
-      const parsedData = await resumeApi.getParsedData(parseInt(resumeId));
-      setResumeData(parsedData);
+      // Get parsed data - it's always JSON now
+      const response = await resumeApi.getParsedData(parseInt(resumeId));
+
+      // Check response format
+      if (typeof response === 'object' && 'parsedData' in response) {
+        setResumeData(response.parsedData);
+      } else {
+        // Direct data
+        setResumeData(response);
+      }
     } catch (error) {
       console.error('Failed to fetch resume data:', error);
       setError('Failed to load resume data');
@@ -69,6 +77,7 @@ export default function EditResumePage() {
   const handleSave = async (updatedData: ResumeData) => {
     setIsSaving(true);
     try {
+      // Send the JSON data - backend will handle conversion to LaTeX if needed
       await resumeApi.updateParsedData(parseInt(resumeId), updatedData, resumeName);
       router.push('/dashboard');
     } catch (error) {
@@ -117,27 +126,28 @@ export default function EditResumePage() {
     <Layout showNav={false}>
       <div className="min-h-screen">
         {/* Header */}
-        <header className="relative z-50 bg-white/90 backdrop-blur-sm shadow-sm border-b">
+        <header className="relative z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
-                <Link 
+                <Link
                   href="/dashboard"
-                  className="inline-flex items-center text-gray-600 hover:text-gray-900 mr-4"
+                  className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mr-4"
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   Back to Dashboard
                 </Link>
                 <div className="flex items-center">
-                  <FileText className="h-8 w-8 text-indigo-600 mr-3" />
-                  <h1 className="text-xl font-semibold text-gray-900">Edit Resume</h1>
+                  <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mr-3" />
+                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Resume</h1>
                 </div>
               </div>
-              
-              {/* Resume Name Editor */}
+
+              {/* Resume Name Editor and Theme Toggle */}
               <div className="flex items-center space-x-4">
+                <ThemeToggle />
                 <div>
-                  <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Resume Name
                   </label>
                   <input
@@ -145,7 +155,7 @@ export default function EditResumePage() {
                     id="resumeName"
                     value={resumeName}
                     onChange={handleNameChange}
-                    className="mt-1 block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="mt-1 block w-64 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm placeholder-gray-400 dark:placeholder-gray-500 px-3 py-2"
                     placeholder="Enter resume name"
                   />
                 </div>
@@ -157,25 +167,25 @@ export default function EditResumePage() {
         <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Error Message */}
           {error && (
-            <div className="mb-6 bg-red-50/90 backdrop-blur-sm border border-red-200 rounded-md p-4">
+            <div className="mb-6 bg-red-50/90 dark:bg-red-900/30 backdrop-blur-sm border border-red-200 dark:border-red-700 rounded-md p-4">
               <div className="flex items-center">
                 <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                <p className="text-red-700 text-sm">{error}</p>
+                <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
               </div>
             </div>
           )}
 
           {resumeData ? (
             <EditableResumeForm
-              initialData={resumeData}
+              initialData={resumeData as ResumeData}
               onSave={handleSave}
               isSaving={isSaving}
             />
           ) : (
-            <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow p-6">
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow p-6">
               <div className="text-center py-12">
-                <Loader2 className="mx-auto h-12 w-12 text-indigo-600 animate-spin mb-4" />
-                <p className="text-gray-600">Loading resume data...</p>
+                <Loader2 className="mx-auto h-12 w-12 text-indigo-600 dark:text-indigo-400 animate-spin mb-4" />
+                <p className="text-gray-600 dark:text-gray-400">Loading resume data...</p>
               </div>
             </div>
           )}

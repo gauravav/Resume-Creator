@@ -1,15 +1,78 @@
-# 📄 Restor - Secure Resume Management Platform
+# 📄 Restor - AI-Powered Resume Management Platform
 
-A comprehensive, security-hardened resume management application built with modern web technologies. Upload, parse, customize, and manage your resumes with enterprise-grade security features.
+<div align="center">
+
+![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=for-the-badge&logo=postgresql)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
+
+**A comprehensive, security-hardened resume management application built with modern web technologies.**
+
+*Upload, parse, customize, and manage your resumes with enterprise-grade security features and AI-powered customization.*
+
+</div>
+
+> 🎯 **Perfect for job seekers**: Tailor your resume for every job application with AI assistance
+> 🔒 **Enterprise-grade security**: Your data is protected with comprehensive security measures
+> 🎨 **Beautiful UI/UX**: Modern dark mode support and intuitive interface
+> 🎮 **Engaging experience**: Interactive mini-games while AI processes your resume
+
+---
+
+## 🎯 What is Restor?
+
+Restor is a modern web application that revolutionizes how you manage and customize your resumes. Using cutting-edge AI technology, it helps you create perfectly tailored resumes for every job application while maintaining enterprise-grade security.
+
+**Key Highlights:**
+- 🚀 **One-Click Customization**: Paste a job description, and let AI optimize your resume
+- 📝 **Smart Parsing**: Upload any resume format and convert it to structured, editable data
+- 🎨 **Visual Feedback**: See exactly what changed with beautiful highlighting
+- 🔒 **Secure & Private**: Your data stays protected with multiple security layers
+- 🌓 **Modern Interface**: Beautiful dark mode and responsive design
+- 🎮 **Enjoyable Experience**: Mini-games make waiting time fun
+
+---
+
+## 📋 Table of Contents
+
+- [Features](#-features)
+- [User Guide](#-user-guide)
+- [Quick Start](#-quick-start)
+- [Interactive Features](#-interactive-features)
+- [Technology Stack](#-technology-stack)
+- [API Documentation](#-api-documentation)
+- [Configuration](#-configuration)
+- [Security Features](#-security-features)
+- [Development](#-development)
+- [Troubleshooting](#-support--troubleshooting)
+
+---
 
 ## 🚀 Features
 
 ### Core Functionality
-- **Resume Upload & Parsing** - Support for PDF, DOC, and DOCX formats
-- **AI-Powered Content Extraction** - Intelligent parsing of resume sections
-- **Resume Customization** - Tailor resumes for specific job opportunities
-- **PDF Generation** - Create professional PDFs from parsed data
-- **Multi-Resume Management** - Organize and version multiple resumes
+- **📄 Resume Upload & Parsing** - Support for PDF, DOC, DOCX, and LaTeX formats
+- **🤖 AI-Powered Content Extraction** - Intelligent parsing of resume sections with structure preservation
+- **✨ Smart Resume Customization** - AI-powered resume tailoring for specific job opportunities
+- **📑 Multi-Format Generation** - Create professional PDFs with LaTeX support for precise formatting
+- **📚 Multi-Resume Management** - Organize and version multiple resumes with base resume support
+- **🎨 Dark Mode Support** - Beautiful dark theme across the entire application
+- **🎮 Interactive Mini-Games** - Play games while waiting for AI processing (Snake, Memory Match, Whack-a-Bug)
+- **📊 Token Usage Tracking** - Monitor your AI usage and limits
+- **🔄 Real-Time Processing** - Live feedback during resume parsing and customization
+
+### User Experience Features
+- **🌓 Dark Mode Toggle** - Seamless theme switching with system preference detection
+- **🎯 Change Highlighting** - Visual indicators for AI-modified content with magical glow effects
+- **📝 Inline Editing** - Edit and refine your resume directly in the preview
+- **🔄 Undo/Revert** - Easily revert AI changes to original content
+- **🪄 AI Responsibility Rewrite** - Context-aware rewriting of individual responsibilities
+- **💾 Auto-Save Prompts** - Never lose your work with smart save prompts
+- **🎲 Entertainment Features** - Mini-games to enjoy during processing waits
+- **📱 Responsive Design** - Beautiful UI on desktop, tablet, and mobile
 
 ### Security Features
 - **🔐 Enterprise Security** - Comprehensive security hardening implemented
@@ -55,9 +118,13 @@ Restor/
 ### Frontend
 - **Next.js 14** - React framework with App Router
 - **TypeScript** - Type-safe JavaScript
-- **Tailwind CSS** - Utility-first styling
-- **React Hook Form** - Form management
-- **Axios** - HTTP client
+- **Tailwind CSS v4** - Utility-first styling with dark mode support
+- **React 18** - Latest React with hooks and concurrent features
+- **Context API** - State management for theme preferences
+- **React Hook Form** - Form management and validation
+- **Axios** - HTTP client for API communication
+- **Lucide React** - Beautiful icon system
+- **Custom Game Engine** - Built-in mini-games (Snake, Memory, Whack-a-Bug)
 
 ### Backend
 - **Node.js** - JavaScript runtime
@@ -116,7 +183,88 @@ docker-compose up -d --build
 | **MinIO Console** | http://localhost:9003 | Object storage management |
 | **Health Check** | http://localhost:3000/health | Service status |
 
+## 📖 User Guide
+
+### Getting Started Workflow
+
+#### 1️⃣ Account Setup
+1. **Register**: Create your account at `/register`
+2. **Verify Email**: Click the link sent to your email
+3. **Wait for Approval**: Admin will review and approve your account
+4. **Login**: Access the platform at `/login`
+
+#### 2️⃣ Upload Your First Resume
+1. Navigate to **Parse Resume** from the dashboard
+2. **Drag & drop** or **click to select** your resume file (PDF, DOC, DOCX)
+3. **Enter a name** for your resume
+4. Click **Parse Resume** - enjoy a mini-game while AI processes!
+5. **Review and Edit** the parsed data
+6. Click **Save Resume** to add it to your collection
+
+#### 3️⃣ Create Custom Resumes
+1. Go to **Create Custom Resume** from the dashboard
+2. **Select a base resume** from your collection
+3. **Paste the job description** for the position you're applying to
+4. **Preview your resume** alongside the job requirements
+5. Click **Create Custom Resume** - play games while AI tailors it!
+6. **Review AI changes** with highlighted modifications
+7. **Edit as needed** using inline editing tools
+8. **Save your customized resume** with a descriptive name
+
+#### 4️⃣ Manage Your Resumes
+- **Dashboard**: View all your resumes at a glance
+- **Edit**: Modify any resume's content
+- **Download**: Get PDF versions of your resumes
+- **Delete**: Remove resumes you no longer need
+- **Track Usage**: Monitor your AI token consumption
+
+### Key Features Explained
+
+#### 🤖 AI-Powered Resume Customization
+The platform uses advanced AI to:
+- **Analyze Job Requirements**: Understand what employers are looking for
+- **Tailor Content**: Modify your resume to highlight relevant experience
+- **Optimize Keywords**: Include industry-specific terminology
+- **Enhance Descriptions**: Improve the impact of your responsibilities
+- **Prioritize Skills**: Reorganize your skills section for the role
+
+#### ✨ Change Highlighting
+When AI customizes your resume, you'll see:
+- **Purple Glow**: Modified sections and fields
+- **Green Highlight**: Newly added content
+- **Original Text Toggle**: Compare before/after versions
+- **Undo Options**: Revert individual changes
+
+#### 🔄 Inline Responsibility Rewriting
+For any responsibility or description:
+1. Click the **magic wand** icon (🪄)
+2. AI generates an improved version
+3. Review and choose to accept or discard
+4. Iterate as many times as needed
+
 ## 🔄 Recent Updates & Fixes
+
+### UI/UX Enhancements (January 2025)
+- **🌓 Dark Mode Implementation**: Complete dark theme support across all pages and components
+  - Theme toggle with light/dark/system preferences
+  - Persistent theme selection via localStorage
+  - Beautiful gradient-based dark mode designs
+  - Optimized for readability and reduced eye strain
+- **🎮 Interactive Mini-Games**: Entertainment during AI processing
+  - 🐍 Snake Game - Classic arcade game with score tracking
+  - 🧠 Memory Match - Card matching game with resume-themed icons
+  - 🐛 Whack-a-Bug - Fast-paced bug squashing game
+  - Automatic modal display during parsing and customization
+  - Full dark mode support in all games
+- **✨ Enhanced Change Visualization**:
+  - Magical glow effects on AI-modified content
+  - Color-coded additions, modifications, and removals
+  - Expandable original text comparison
+  - Section-by-section change indicators
+- **📑 LaTeX Support**:
+  - PDF generation with LaTeX templates
+  - Structure metadata preservation
+  - Platform-specific LaTeX processing (macOS/Linux)
 
 ### Database Schema Updates (September 2025)
 - **✅ User Timezone Support**: Added `timezone` column to users table with automatic UTC default
@@ -143,6 +291,50 @@ The application now includes intelligent URL detection in `/src/utils/urlUtils.j
 2. **Email Verification** → Admin notification sent
 3. **Admin Approval** → Welcome email sent to user
 4. **Account Active** → Full access to resume management features
+
+## 🎮 Interactive Features
+
+### Mini-Games
+While your resume is being processed by AI, enjoy one of three built-in mini-games:
+
+#### 🐍 Snake Game
+- **Controls**: Arrow keys (↑ ↓ ← →)
+- **Objective**: Eat food to grow, avoid walls and yourself
+- **Scoring**: +10 points per food item
+- **Features**: Real-time score tracking, restart option
+
+#### 🧠 Memory Match
+- **Controls**: Click/tap to flip cards
+- **Objective**: Match pairs of resume-themed emoji cards
+- **Scoring**: +20 points per match, move counter
+- **Features**: 8 unique card pairs, win detection
+
+#### 🐛 Whack-a-Bug
+- **Controls**: Click/tap on bugs
+- **Objective**: Squash as many bugs as possible in 30 seconds
+- **Scoring**: +10 points per bug
+- **Features**: 30-second timer, final score display
+
+**When Games Appear:**
+- During resume parsing (Upload & Parse flow)
+- During AI customization (Tailor for Job flow)
+- Automatically dismissed when processing completes
+
+### Dark Mode
+Switch between light and dark themes using the toggle button in the navigation bar:
+
+- **🌞 Light Mode**: Clean, bright interface for daytime use
+- **🌙 Dark Mode**: Easy-on-the-eyes dark theme for low-light environments
+- **💻 System**: Automatically matches your operating system preference
+
+**Theme Persistence**: Your preference is saved and remembered across sessions.
+
+**Availability**: Dark mode is fully supported across:
+- Dashboard and all main pages
+- Resume editing and preview interfaces
+- Dialog boxes and modals
+- All forms and input fields
+- Mini-games interface
 
 ## 📚 API Documentation
 
@@ -417,6 +609,28 @@ Configure file security in `Backend/src/utils/fileValidator.js`:
 - Update documentation as needed
 - Ensure security best practices are maintained
 
+## 💡 Pro Tips
+
+### Maximizing Resume Effectiveness
+1. **Use Base Resumes**: Create one comprehensive "master" resume, then customize for each job
+2. **Be Specific**: Include detailed job descriptions when customizing for better AI matching
+3. **Review AI Changes**: Always review and refine AI suggestions - you know your experience best
+4. **Version Control**: Save different versions for different job types (e.g., "Software Engineer - Backend", "Software Engineer - Full Stack")
+5. **Regular Updates**: Keep your base resume current with new skills and experiences
+
+### Best Practices
+- **Token Management**: Monitor your AI usage to stay within limits
+- **Test Downloads**: Always preview PDFs before sending to employers
+- **Backup Strategy**: Download PDFs of important resumes for local backup
+- **Dark Mode**: Use dark mode for extended editing sessions to reduce eye strain
+- **Game Breaks**: Enjoy the mini-games during processing - they're designed to be quick and fun!
+
+### Security Tips
+- **Strong Passwords**: Use unique, complex passwords for your account
+- **Regular Logout**: Log out when using shared computers
+- **Email Verification**: Complete email verification promptly
+- **Review Permissions**: Check what data you're sharing
+
 ## 📄 License
 
 This project is licensed under the ISC License - see individual component licenses for details.
@@ -472,6 +686,24 @@ npm start
 - Check user account status in database
 - Review admin notification emails
 - Verify email service configuration
+
+**Dark mode not working?**
+- Clear browser cache and localStorage
+- Check browser compatibility (modern browsers only)
+- Verify theme toggle button is visible in navigation
+- Try manually switching themes using the toggle
+
+**Mini-games not appearing?**
+- Games only show during active processing (parsing or customization)
+- Check browser console for JavaScript errors
+- Ensure JavaScript is enabled in your browser
+- Try refreshing the page and starting the process again
+
+**Resume changes not highlighting?**
+- Highlighting requires original resume data for comparison
+- Ensure you're using "Create Custom Resume" flow (not manual editing)
+- Check that AI customization completed successfully
+- Review browser console for any errors
 
 ### Getting Help
 - Check the logs in `Backend/logs/`

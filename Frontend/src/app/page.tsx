@@ -23,20 +23,20 @@ export default function Home() {
         <header className="pt-8 pb-12">
           <nav className="flex justify-between items-center">
             <div className="flex items-center">
-              <FileText className="h-8 w-8 text-indigo-400 mr-2" />
+              <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2" />
               <span className="text-xl font-bold text-white">Resume Creator</span>
             </div>
             <div className="flex space-x-4">
               <Link
                 href="/login"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white/90 backdrop-blur-sm hover:bg-white/95 transition-all"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white/95 dark:hover:bg-gray-700/95 transition-all"
               >
                 <LogIn className="h-4 w-4 mr-2" />
                 Sign In
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-all"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 transition-all"
               >
                 <UserPlus className="h-4 w-4 mr-2" />
                 Sign Up
@@ -56,22 +56,22 @@ export default function Home() {
               Resumes
             </h1>
             
-            <p className="text-xl text-gray-200 mb-12 max-w-2xl mx-auto">
-              Upload your resume and use our AI to create, edit, and customize every section. 
+            <p className="text-xl text-gray-200 dark:text-gray-300 mb-12 max-w-2xl mx-auto">
+              Upload your resume and use our AI to create, edit, and customize every section.
               Rewrite responsibilities, enhance summaries, and tailor content for any opportunity.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/register"
-                className="inline-flex items-center px-8 py-4 border border-transparent text-lg font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all"
+                className="inline-flex items-center px-8 py-4 border border-transparent text-lg font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 shadow-lg hover:shadow-xl transition-all"
               >
                 <FileText className="h-5 w-5 mr-2" />
                 Get Started Free
               </Link>
               <Link
                 href="/login"
-                className="inline-flex items-center px-8 py-4 border border-gray-300 text-lg font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 shadow-lg hover:shadow-xl transition-all"
+                className="inline-flex items-center px-8 py-4 border border-gray-300 dark:border-gray-600 text-lg font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-lg hover:shadow-xl transition-all"
               >
                 <LogIn className="h-5 w-5 mr-2" />
                 Sign In
@@ -89,25 +89,25 @@ export default function Home() {
             
             <div className="grid md:grid-cols-3 gap-8">
               <div className="text-center">
-                <div className="bg-indigo-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">1</div>
+                <div className="bg-indigo-600 dark:bg-indigo-700 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">1</div>
                 <h3 className="text-xl font-semibold text-white mb-2">Create New Resume</h3>
-                <p className="text-gray-200">
+                <p className="text-gray-200 dark:text-gray-300">
                   Upload your resume file and our AI extracts all your experience, skills, and achievements into structured data.
                 </p>
               </div>
 
               <div className="text-center">
-                <div className="bg-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">2</div>
+                <div className="bg-purple-600 dark:bg-purple-700 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">2</div>
                 <h3 className="text-xl font-semibold text-white mb-2">AI-Powered Editing</h3>
-                <p className="text-gray-200">
+                <p className="text-gray-200 dark:text-gray-300">
                   Use AI to rewrite responsibilities, enhance your summary, and perfect every detail with custom prompts.
                 </p>
               </div>
 
               <div className="text-center">
-                <div className="bg-green-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">3</div>
+                <div className="bg-green-600 dark:bg-green-700 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">3</div>
                 <h3 className="text-xl font-semibold text-white mb-2">Export & Apply</h3>
-                <p className="text-gray-200">
+                <p className="text-gray-200 dark:text-gray-300">
                   Download your perfected resume and apply with confidence. Keep multiple versions organized in your dashboard.
                 </p>
               </div>
@@ -123,32 +123,32 @@ export default function Home() {
             </h2>
             
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Upload className="h-8 w-8 text-indigo-600" />
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                <div className="bg-indigo-100 dark:bg-indigo-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Upload className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Smart Resume Import</h3>
-                <p className="text-gray-600">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Smart Resume Import</h3>
+                <p className="text-gray-600 dark:text-gray-400">
                   Upload PDF, DOC, or DOCX files and our AI extracts all content into editable, structured data automatically.
                 </p>
               </div>
 
-              <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="h-8 w-8 text-purple-600" />
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                <div className="bg-purple-100 dark:bg-purple-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">AI-Powered Rewriting</h3>
-                <p className="text-gray-600">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">AI-Powered Rewriting</h3>
+                <p className="text-gray-600 dark:text-gray-400">
                   Enhance every responsibility and summary with AI. Give custom prompts to make content more impactful and professional.
                 </p>
               </div>
 
-              <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-8 w-8 text-green-600" />
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                <div className="bg-green-100 dark:bg-green-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Secure & Organized</h3>
-                <p className="text-gray-600">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Secure & Organized</h3>
+                <p className="text-gray-600 dark:text-gray-400">
                   Keep all your resume versions organized in a clean dashboard. Edit, download, and manage with ease.
                 </p>
               </div>
@@ -157,9 +157,9 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="py-12 text-center text-gray-300">
+        <footer className="py-12 text-center text-gray-300 dark:text-gray-400">
           <div className="flex items-center justify-center mb-4">
-            <FileText className="h-6 w-6 text-indigo-400 mr-2" />
+            <FileText className="h-6 w-6 text-indigo-400 dark:text-indigo-300 mr-2" />
             <span className="font-semibold text-white">Resume Creator (Restor)</span>
           </div>
           <p>&copy; 2024 Resume Creator (Restor). Transform your career with AI-powered resume customization.</p>

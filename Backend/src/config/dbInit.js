@@ -18,14 +18,15 @@ const initializeDatabase = async () => {
     
     const requiredTables = ['users', 'parsed_resumes', 'job_descriptions', 'generated_resumes', 'token_usage', 'admin_actions'];
     const missingTables = requiredTables.filter(table => !existingTables.includes(table));
-    
+
     if (missingTables.length === 0) {
       logger.info('✅ All required database tables exist');
-      return;
+    } else {
+      logger.info(`📋 Missing tables: ${missingTables.join(', ')}`);
+      logger.info('🔧 Initializing database tables...');
     }
-    
-    logger.info(`📋 Missing tables: ${missingTables.join(', ')}`);
-    logger.info('🔧 Initializing database tables...');
+
+    // Continue with table creation and migrations even if all tables exist
     
     // Create extension if not exists
     await pool.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
@@ -177,19 +178,74 @@ const initializeDatabase = async () => {
     
     // Add timezone column to users table if it doesn't exist
     const checkTimezoneColumn = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
+      SELECT column_name
+      FROM information_schema.columns
       WHERE table_name = 'users' AND column_name = 'timezone'
     `);
-    
+
     if (checkTimezoneColumn.rows.length === 0) {
       await pool.query(`
-        ALTER TABLE users 
+        ALTER TABLE users
         ADD COLUMN timezone VARCHAR(100) DEFAULT 'UTC'
       `);
       logger.info('✅ Added timezone column to users table');
     }
-    
+
+    // Add PDF-related columns to parsed_resumes table if they don't exist
+    const checkPdfColumns = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'parsed_resumes' AND column_name IN ('pdf_file_name', 'pdf_status', 'pdf_generated_at')
+    `);
+
+    const existingPdfColumns = checkPdfColumns.rows.map(row => row.column_name);
+
+    if (!existingPdfColumns.includes('pdf_file_name')) {
+      await pool.query(`
+        ALTER TABLE parsed_resumes
+        ADD COLUMN pdf_file_name VARCHAR(255)
+      `);
+      logger.info('✅ Added pdf_file_name column to parsed_resumes table');
+    }
+
+    if (!existingPdfColumns.includes('pdf_status')) {
+      await pool.query(`
+        ALTER TABLE parsed_resumes
+        ADD COLUMN pdf_status VARCHAR(20) DEFAULT 'pending' CHECK (pdf_status IN ('pending', 'generating', 'ready', 'failed'))
+      `);
+      logger.info('✅ Added pdf_status column to parsed_resumes table');
+    }
+
+    if (!existingPdfColumns.includes('pdf_generated_at')) {
+      await pool.query(`
+        ALTER TABLE parsed_resumes
+        ADD COLUMN pdf_generated_at TIMESTAMP
+      `);
+      logger.info('✅ Added pdf_generated_at column to parsed_resumes table');
+    }
+
+    // Add structure_metadata column to preserve resume layout/formatting
+    const checkStructureMetadataColumn = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'parsed_resumes' AND column_name = 'structure_metadata'
+    `);
+
+    if (checkStructureMetadataColumn.rows.length === 0) {
+      await pool.query(`
+        ALTER TABLE parsed_resumes
+        ADD COLUMN structure_metadata JSONB DEFAULT '{}'
+      `);
+
+      // Add GIN index for faster JSON queries
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_parsed_resumes_structure_metadata
+        ON parsed_resumes USING GIN (structure_metadata)
+      `);
+
+      logger.info('✅ Added structure_metadata column to parsed_resumes table with GIN index');
+    }
+
     logger.info('🎉 Database initialization completed successfully');
     
   } catch (error) {

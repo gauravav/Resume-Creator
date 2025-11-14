@@ -28,14 +28,25 @@ class TokenUsage {
   static async getUsageHistory(userId, page = 1, limit = 20) {
     const offset = (page - 1) * limit;
     const query = `
-      SELECT id, operation_type, tokens_used, metadata, created_at
+      SELECT
+        id,
+        operation_type,
+        tokens_used,
+        metadata,
+        created_at AT TIME ZONE 'UTC' as created_at
       FROM token_usage
       WHERE user_id = $1
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
     `;
     const result = await pool.query(query, [userId, limit, offset]);
-    
+
+    // Convert timestamps to ISO format
+    const history = result.rows.map(row => ({
+      ...row,
+      created_at: new Date(row.created_at).toISOString()
+    }));
+
     // Get total count for pagination
     const countQuery = `
       SELECT COUNT(*) as total
@@ -43,9 +54,9 @@ class TokenUsage {
       WHERE user_id = $1
     `;
     const countResult = await pool.query(countQuery, [userId]);
-    
+
     return {
-      history: result.rows,
+      history: history,
       total: parseInt(countResult.rows[0].total),
       page,
       limit,
@@ -73,19 +84,26 @@ class TokenUsage {
   // Get usage statistics by operation type
   static async getUsageByOperation(userId) {
     const query = `
-      SELECT 
+      SELECT
         operation_type,
         COUNT(*) as operation_count,
         SUM(tokens_used) as total_tokens,
         AVG(tokens_used) as avg_tokens,
-        MAX(created_at) as last_used
+        MAX(created_at AT TIME ZONE 'UTC') as last_used
       FROM token_usage
       WHERE user_id = $1 AND operation_type != 'reset'
       GROUP BY operation_type
       ORDER BY total_tokens DESC
     `;
     const result = await pool.query(query, [userId]);
-    return result.rows;
+
+    // Convert last_used timestamps to ISO format
+    const stats = result.rows.map(row => ({
+      ...row,
+      last_used: row.last_used ? new Date(row.last_used).toISOString() : null
+    }));
+
+    return stats;
   }
 
   // Get daily usage stats for the last 30 days

@@ -17,7 +17,7 @@ class ResumePDF {
   async generatePDF(resumeData) {
     try {
       this.addHeader(resumeData.personalInfo);
-      this.addSection('PROFESSIONAL SUMMARY', resumeData.summary);
+      this.addSummarySection(resumeData.summary);
       this.addExperienceSection(resumeData.experience);
       this.addEducationSection(resumeData.education);
       this.addProjectsSection(resumeData.projects);
@@ -80,17 +80,17 @@ class ResumePDF {
 
   addSection(title, content) {
     this.checkPageBreak(60);
-    
+
     this.doc.fontSize(14)
            .font('Helvetica-Bold')
            .text(title, this.leftMargin, this.currentY);
-    
+
     this.currentY += 20;
-    
+
     this.doc.moveTo(this.leftMargin, this.currentY)
            .lineTo(this.leftMargin + this.pageWidth, this.currentY)
            .stroke();
-    
+
     this.currentY += 10;
 
     if (content) {
@@ -102,6 +102,50 @@ class ResumePDF {
              });
       this.currentY += this.doc.heightOfString(content, { width: this.pageWidth }) + 15;
     }
+  }
+
+  addSummarySection(summary) {
+    if (!summary || (Array.isArray(summary) && summary.length === 0)) return;
+
+    this.checkPageBreak(60);
+
+    this.doc.fontSize(14)
+           .font('Helvetica-Bold')
+           .text('PROFESSIONAL SUMMARY', this.leftMargin, this.currentY);
+
+    this.currentY += 20;
+
+    this.doc.moveTo(this.leftMargin, this.currentY)
+           .lineTo(this.leftMargin + this.pageWidth, this.currentY)
+           .stroke();
+
+    this.currentY += 10;
+
+    // Handle both array (new format) and string (old format for backward compatibility)
+    const summaryPoints = Array.isArray(summary) ? summary : [summary];
+
+    summaryPoints.forEach((point) => {
+      if (point && point.trim()) {
+        this.checkPageBreak(30);
+
+        // Add bullet point
+        this.doc.fontSize(11)
+               .font('Helvetica')
+               .text('•', this.leftMargin, this.currentY, {
+                 continued: true,
+                 width: 15
+               })
+               .text(' ' + point, this.leftMargin + 15, this.currentY, {
+                 width: this.pageWidth - 15,
+                 align: 'justify'
+               });
+
+        const pointHeight = this.doc.heightOfString(point, { width: this.pageWidth - 15 });
+        this.currentY += pointHeight + 8;
+      }
+    });
+
+    this.currentY += 7; // Extra spacing after summary section
   }
 
   addExperienceSection(experiences) {
@@ -285,30 +329,20 @@ class ResumePDF {
   }
 
   addTechnologiesSection(technologies) {
-    if (!technologies) return;
+    if (!technologies || !Array.isArray(technologies) || technologies.length === 0) return;
 
     this.addSection('TECHNICAL SKILLS');
 
-    const skillCategories = [
-      { name: 'Languages', skills: technologies.languages },
-      { name: 'Backend', skills: technologies.backend },
-      { name: 'Frontend', skills: technologies.frontend },
-      { name: 'SQL Databases', skills: technologies.databases?.sql },
-      { name: 'NoSQL Databases', skills: technologies.databases?.nosql },
-      { name: 'Cloud & DevOps', skills: technologies.cloudAndDevOps },
-      { name: 'CI/CD & Automation', skills: technologies.cicdAndAutomation },
-      { name: 'Testing & Debugging', skills: technologies.testingAndDebugging }
-    ];
-
-    skillCategories.forEach(category => {
-      if (category.skills && category.skills.length > 0) {
+    // Technologies is now an array of { category, items } objects
+    technologies.forEach(tech => {
+      if (tech.category && tech.items && tech.items.length > 0) {
         this.checkPageBreak(30);
-        
+
         this.doc.fontSize(11)
                .font('Helvetica-Bold')
-               .text(`${category.name}: `, this.leftMargin, this.currentY, { continued: true })
+               .text(`${tech.category}: `, this.leftMargin, this.currentY, { continued: true })
                .font('Helvetica')
-               .text(category.skills.join(', '));
+               .text(tech.items.join(', '));
 
         this.currentY += 15;
       }

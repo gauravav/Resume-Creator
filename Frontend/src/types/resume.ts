@@ -16,7 +16,7 @@ export interface ResumeData {
       github: string;
     };
   };
-  summary: string;
+  summary: string[];
   education: Array<{
     institution: string;
     degree: string;
@@ -86,16 +86,24 @@ export interface ResumeData {
     description: string[];
     toolsUsed: string[];
   }>;
-  technologies: {
-    languages: string[];
-    backend: string[];
-    frontend: string[];
-    databases: {
-      sql: string[];
-      nosql: string[];
-    };
-    cloudAndDevOps: string[];
-    cicdAndAutomation: string[];
-    testingAndDebugging: string[];
-  };
+  // Technologies can be in two formats:
+  // 1. Array format (from backend): [{ category, items }]
+  // 2. Object format (for CustomResumeForm): { languages, backend, etc. }
+  technologies:
+    | Array<{
+        category: string;
+        items: string[];
+      }>
+    | {
+        languages: string[];
+        backend: string[];
+        frontend: string[];
+        cloudAndDevOps: string[];
+        databases: {
+          sql: string[];
+          nosql: string[];
+        };
+        cicdAndAutomation: string[];
+        testingAndDebugging: string[];
+      };
 }

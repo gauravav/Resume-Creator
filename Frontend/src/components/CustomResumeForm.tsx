@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Globe, 
-  Linkedin, 
+import {
+  User,
+  Mail,
+  Phone,
+  Globe,
+  Linkedin,
   Github,
   GraduationCap,
   Briefcase,
@@ -15,10 +15,18 @@ import {
   Plus,
   Trash2,
   Wand2,
-  ChevronDown
+  ChevronDown,
+  Undo2,
+  ChevronRight
 } from 'lucide-react';
 import { ResumeData } from '@/types/resume';
 import ResponsibilityRewriteDialog from './ResponsibilityRewriteDialog';
+
+interface TechnologyChanges {
+  hasChanges: boolean;
+  added: string[];
+  removed: string[];
+}
 
 interface DetailedChanges {
   personalInfo?: {
@@ -27,19 +35,63 @@ interface DetailedChanges {
   };
   experience?: Array<{
     responsibilities?: boolean[];
+    newResponsibilities?: boolean[];
   }>;
   projects?: Array<{
     descriptions?: boolean[];
   }>;
-  technologies?: {
-    languages?: boolean;
-    backend?: boolean;
-  };
+  technologies?:
+    | {
+        // Object format (fixed categories)
+        isArrayFormat?: false;
+        languages?: TechnologyChanges;
+        backend?: TechnologyChanges;
+        frontend?: TechnologyChanges;
+        cloudAndDevOps?: TechnologyChanges;
+        databases?: {
+          sql?: TechnologyChanges;
+          nosql?: TechnologyChanges;
+        };
+        cicdAndAutomation?: TechnologyChanges;
+        testingAndDebugging?: TechnologyChanges;
+      }
+    | {
+        // Array format (dynamic categories)
+        isArrayFormat: true;
+        categories: Array<{
+          category: string;
+          originalCategory?: string;
+          categoryRenamed: boolean;
+          isNewCategory: boolean;
+          technologies: TechnologyChanges;
+        }>;
+      };
 }
 
-// Magic glow wrapper for individual fields that have changed
-const MagicalField = ({ isChanged, children, intensity = 'normal' }: { 
-  isChanged: boolean; 
+// Magic glow wrapper for NEW fields (green glow)
+const NewField = ({ isNew, children }: {
+  isNew: boolean;
+  children: React.ReactNode;
+}) => {
+  if (!isNew) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div className="relative">
+      {/* Green magical glow for new items */}
+      <div className="absolute -inset-1.5 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 rounded-lg blur opacity-50 animate-pulse" />
+
+      <div className="relative">
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// Magic glow wrapper for individual fields that have changed (purple/blue glow)
+const MagicalField = ({ isChanged, children, intensity = 'normal' }: {
+  isChanged: boolean;
   children: React.ReactNode;
   intensity?: 'subtle' | 'normal' | 'strong';
 }) => {
@@ -131,6 +183,7 @@ const MagicalSection = ({ isChanged, children }: { isChanged: boolean; children:
 interface CustomResumeFormProps {
   initialData: ResumeData;
   onChange: (data: ResumeData) => void;
+  originalData?: ResumeData; // Original resume data for showing diffs and reverting
   summaryChanged?: boolean;
   personalInfoChanged?: boolean;
   educationChanged?: boolean;
@@ -140,9 +193,10 @@ interface CustomResumeFormProps {
   detailedChanges?: DetailedChanges; // Detailed change information for individual fields
 }
 
-export default function CustomResumeForm({ 
-  initialData, 
+export default function CustomResumeForm({
+  initialData,
   onChange,
+  originalData,
   summaryChanged = false,
   personalInfoChanged = false,
   educationChanged = false,
@@ -155,6 +209,19 @@ export default function CustomResumeForm({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['personalInfo', 'summary'])
   );
+
+  // Type guard to check if technologies is in object format
+  const isTechObject = (tech: ResumeData['technologies']): tech is {
+    languages: string[];
+    backend: string[];
+    frontend: string[];
+    cloudAndDevOps: string[];
+    databases: { sql: string[]; nosql: string[] };
+    cicdAndAutomation: string[];
+    testingAndDebugging: string[];
+  } => {
+    return !Array.isArray(tech) && typeof tech === 'object' && 'languages' in tech;
+  };
 
   // Debug logging
   console.log('CustomResumeForm - Props received:', {
@@ -415,6 +482,78 @@ export default function CustomResumeForm({
     return value.split(',').map(item => item.trim()).filter(item => item !== '');
   };
 
+  // Summary point management
+  const addSummaryPoint = () => {
+    const newData = {
+      ...data,
+      summary: Array.isArray(data.summary) ? [...data.summary, ''] : [data.summary, '']
+    };
+    updateData(newData);
+  };
+
+  const updateSummaryPoint = (index: number, value: string) => {
+    const summaryArray = Array.isArray(data.summary) ? data.summary : [data.summary];
+    const newData = {
+      ...data,
+      summary: summaryArray.map((point, i) => i === index ? value : point)
+    };
+    updateData(newData);
+  };
+
+  const removeSummaryPoint = (index: number) => {
+    const summaryArray = Array.isArray(data.summary) ? data.summary : [data.summary];
+    const newData = {
+      ...data,
+      summary: summaryArray.filter((_, i) => i !== index)
+    };
+    updateData(newData);
+  };
+
+  // Technology category management for array format
+  const addTechnologyCategory = () => {
+    if (Array.isArray(data.technologies)) {
+      const newData = {
+        ...data,
+        technologies: [...data.technologies, { category: '', items: [] }]
+      };
+      updateData(newData);
+    }
+  };
+
+  const updateTechnologyCategory = (index: number, category: string) => {
+    if (Array.isArray(data.technologies)) {
+      const newData = {
+        ...data,
+        technologies: data.technologies.map((tech, i) =>
+          i === index ? { ...tech, category } : tech
+        )
+      };
+      updateData(newData);
+    }
+  };
+
+  const updateTechnologyItems = (index: number, items: string[]) => {
+    if (Array.isArray(data.technologies)) {
+      const newData = {
+        ...data,
+        technologies: data.technologies.map((tech, i) =>
+          i === index ? { ...tech, items } : tech
+        )
+      };
+      updateData(newData);
+    }
+  };
+
+  const removeTechnologyCategory = (index: number) => {
+    if (Array.isArray(data.technologies)) {
+      const newData = {
+        ...data,
+        technologies: data.technologies.filter((_, i) => i !== index)
+      };
+      updateData(newData);
+    }
+  };
+
   const arrayToString = (arr: string[]): string => {
     return arr.join(', ');
   };
@@ -443,10 +582,10 @@ export default function CustomResumeForm({
 
   const handleReplaceResponsibility = (newText: string) => {
     const { experienceIndex, responsibilityIndex, isProject, isSummary } = rewriteDialog;
-    
+
     if (isSummary) {
-      const newData = { ...data, summary: newText };
-      updateData(newData);
+      // Replace the specific summary point at the index
+      updateSummaryPoint(responsibilityIndex, newText);
     } else if (isProject) {
       const newData = {
         ...data,
@@ -509,10 +648,36 @@ export default function CustomResumeForm({
   const removeResponsibility = (experienceIndex: number, responsibilityIndex: number) => {
     const newData = {
       ...data,
-      experience: data.experience.map((exp, expIndex) => 
+      experience: data.experience.map((exp, expIndex) =>
         expIndex === experienceIndex ? {
           ...exp,
           responsibilities: exp.responsibilities.filter((_, respIndex) => respIndex !== responsibilityIndex)
+        } : exp
+      )
+    };
+    updateData(newData);
+  };
+
+  const revertResponsibility = (experienceIndex: number, responsibilityIndex: number) => {
+    if (!originalData || !originalData.experience?.[experienceIndex]) {
+      console.log('No original data to revert to');
+      return;
+    }
+
+    const originalResp = originalData.experience[experienceIndex].responsibilities?.[responsibilityIndex];
+    if (!originalResp) {
+      console.log('No original responsibility at this index');
+      return;
+    }
+
+    const newData = {
+      ...data,
+      experience: data.experience.map((exp, expIndex) =>
+        expIndex === experienceIndex ? {
+          ...exp,
+          responsibilities: exp.responsibilities.map((resp, respIndex) =>
+            respIndex === responsibilityIndex ? originalResp : resp
+          )
         } : exp
       )
     };
@@ -564,48 +729,48 @@ export default function CustomResumeForm({
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header - No Save Button for Custom Resume */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Custom Resume Preview</h1>
-        <div className="text-sm text-gray-500 italic">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Custom Resume Preview</h1>
+        <div className="text-sm text-gray-500 dark:text-gray-400 italic">
           Edit and preview your customized resume
         </div>
       </div>
 
       {/* Personal Information */}
       <MagicalSection isChanged={personalInfoChanged}>
-        <div className="bg-white rounded-lg shadow-md">
-        <div 
-          className="flex items-center justify-between p-4 border-b cursor-pointer"
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <div
+          className="flex items-center justify-between p-4 border-b dark:border-gray-700 cursor-pointer"
           onClick={() => toggleSection('personalInfo')}
         >
           <div className="flex items-center">
-            <User className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
+            <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-3" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Personal Information</h2>
           </div>
-          <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${expandedSections.has('personalInfo') ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform ${expandedSections.has('personalInfo') ? 'rotate-180' : ''}`} />
         </div>
         
         {expandedSections.has('personalInfo') && (
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label>
                 <MagicalField isChanged={detailedChanges?.personalInfo?.firstName ?? false} intensity="subtle">
                   <input
                     type="text"
                     value={data.personalInfo.firstName}
                     onChange={(e) => updatePersonalInfo('firstName', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </MagicalField>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
                 <MagicalField isChanged={detailedChanges?.personalInfo?.lastName ?? false} intensity="subtle">
                   <input
                     type="text"
                     value={data.personalInfo.lastName}
                     onChange={(e) => updatePersonalInfo('lastName', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </MagicalField>
               </div>
@@ -613,26 +778,26 @@ export default function CustomResumeForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                 <div className="relative">
-                  <Mail className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  <Mail className="h-5 w-5 text-gray-400 dark:text-gray-500 absolute left-3 top-2.5" />
                   <input
                     type="email"
                     value={data.personalInfo.email}
                     onChange={(e) => updatePersonalInfo('email', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-10 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
                 <div className="relative">
-                  <Phone className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  <Phone className="h-5 w-5 text-gray-400 dark:text-gray-500 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={data.personalInfo.phone}
                     onChange={(e) => updatePersonalInfo('phone', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-10 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -672,7 +837,7 @@ export default function CustomResumeForm({
                     onChange={(e) => updatePersonalLocation('remote', e.target.checked)}
                     className="mr-2"
                   />
-                  <span className="text-sm text-gray-700">Remote work available</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Remote work available</span>
                 </label>
               </div>
             </div>
@@ -680,38 +845,38 @@ export default function CustomResumeForm({
             {/* Website and Social Media */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website</label>
                 <div className="relative">
-                  <Globe className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  <Globe className="h-5 w-5 text-gray-400 dark:text-gray-500 absolute left-3 top-2.5" />
                   <input
                     type="url"
                     value={data.personalInfo.website}
                     onChange={(e) => updatePersonalInfo('website', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-10 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">LinkedIn</label>
                 <div className="relative">
-                  <Linkedin className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  <Linkedin className="h-5 w-5 text-gray-400 dark:text-gray-500 absolute left-3 top-2.5" />
                   <input
                     type="url"
                     value={data.personalInfo.socialMedia.linkedin}
                     onChange={(e) => updateSocialMedia('linkedin', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-10 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">GitHub</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GitHub</label>
                 <div className="relative">
-                  <Github className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  <Github className="h-5 w-5 text-gray-400 dark:text-gray-500 absolute left-3 top-2.5" />
                   <input
                     type="url"
                     value={data.personalInfo.socialMedia.github}
                     onChange={(e) => updateSocialMedia('github', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md pl-10 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -723,42 +888,64 @@ export default function CustomResumeForm({
 
       {/* Summary */}
       <MagicalSection isChanged={summaryChanged}>
-        <div className="bg-white rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
-          className="flex items-center justify-between p-4 border-b cursor-pointer"
+          className="flex items-center justify-between p-4 border-b dark:border-gray-700 cursor-pointer"
           onClick={() => toggleSection('summary')}
         >
-          <h2 className="text-xl font-semibold text-gray-900">Professional Summary</h2>
-          <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${expandedSections.has('summary') ? 'rotate-180' : ''}`} />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Professional Summary</h2>
+          <ChevronDown className={`h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform ${expandedSections.has('summary') ? 'rotate-180' : ''}`} />
         </div>
         
         {expandedSections.has('summary') && (
           <div className="p-6">
-            <div className="flex items-start space-x-2">
-              <div className="flex-1">
-                <MagicalField isChanged={summaryChanged} intensity="normal">
-                  <textarea
-                    value={data.summary}
-                    onChange={(e) => {
-                      const newData = { ...data, summary: e.target.value };
-                      updateData(newData);
-                    }}
-                    rows={4}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Write a brief professional summary..."
-                  />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Summary Points</label>
+              <button
+                onClick={addSummaryPoint}
+                className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100"
+                title="Add new summary point"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add
+              </button>
+            </div>
+            <div className="space-y-2">
+              {(Array.isArray(data.summary) ? data.summary : [data.summary]).map((point, index) => (
+                <MagicalField key={index} isChanged={summaryChanged} intensity="normal">
+                  <div className="flex items-start space-x-2">
+                    <textarea
+                      value={point}
+                      onChange={(e) => updateSummaryPoint(index, e.target.value)}
+                      rows={2}
+                      className="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Write a professional summary point..."
+                    />
+                    <div className="flex flex-col space-y-1 pt-1">
+                      <button
+                        onClick={() => openRewriteDialog(point, -1, index, false, true)}
+                        className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded"
+                        title="Rewrite this summary point using AI"
+                        disabled={!point || !point.trim()}
+                      >
+                        <Wand2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => removeSummaryPoint(index)}
+                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                        title="Remove this summary point"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </MagicalField>
-              </div>
-              <div className="flex flex-col space-y-1 pt-1">
-                <button
-                  onClick={() => openRewriteDialog(data.summary, -1, -1, false, true)}
-                  className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded"
-                  title="Rewrite professional summary using AI to make it more impactful and tailored"
-                  disabled={!data.summary.trim()}
-                >
-                  <Wand2 className="w-5 h-5" />
-                </button>
-              </div>
+              ))}
+              {(Array.isArray(data.summary) ? data.summary.length : 1) === 0 && (
+                <div className="text-gray-500 dark:text-gray-400 text-sm italic py-2">
+                  No summary points added yet. Click "Add" to add your first point.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -767,14 +954,14 @@ export default function CustomResumeForm({
 
       {/* Education */}
       <MagicalSection isChanged={educationChanged}>
-        <div className="bg-white rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
-          className="flex items-center justify-between p-4 border-b cursor-pointer"
+          className="flex items-center justify-between p-4 border-b dark:border-gray-700 cursor-pointer"
           onClick={() => toggleSection('education')}
         >
           <div className="flex items-center">
-            <GraduationCap className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-xl font-semibold text-gray-900">Education</h2>
+            <GraduationCap className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-3" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Education</h2>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -788,7 +975,7 @@ export default function CustomResumeForm({
             >
               <Plus className="h-5 w-5" />
             </button>
-            <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${expandedSections.has('education') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform ${expandedSections.has('education') ? 'rotate-180' : ''}`} />
           </div>
         </div>
         
@@ -797,7 +984,7 @@ export default function CustomResumeForm({
             {data.education.map((edu, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Education {index + 1}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Education {index + 1}</h3>
                   <button
                     onClick={() => removeEducation(index)}
                     className="p-1 text-red-600 hover:text-red-800"
@@ -809,32 +996,32 @@ export default function CustomResumeForm({
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Institution</label>
                     <input
                       type="text"
                       value={edu.institution}
                       onChange={(e) => updateEducation(index, 'institution', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Degree</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Degree</label>
                     <input
                       type="text"
                       value={edu.degree}
                       onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Major</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Major</label>
                   <input
                     type="text"
                     value={edu.major}
                     onChange={(e) => updateEducation(index, 'major', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
@@ -842,54 +1029,54 @@ export default function CustomResumeForm({
                 <div className="space-y-4 mb-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
                       <div className="flex space-x-2">
                         <input
                           type="text"
                           placeholder="Month"
                           value={edu.duration.start.month}
                           onChange={(e) => updateEducationDuration(index, 'start', 'month', e.target.value)}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                         <input
                           type="number"
                           placeholder="Year"
                           value={edu.duration.start.year || ''}
                           onChange={(e) => updateEducationDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : '')}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
                       <div className="flex space-x-2">
                         <input
                           type="text"
                           placeholder="Month"
                           value={edu.duration.end.month}
                           onChange={(e) => updateEducationDuration(index, 'end', 'month', e.target.value)}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                         <input
                           type="number"
                           placeholder="Year"
                           value={edu.duration.end.year || ''}
                           onChange={(e) => updateEducationDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : '')}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Leave empty if ongoing</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if ongoing</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Relevant Coursework (comma-separated)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Relevant Coursework (comma-separated)</label>
                   <input
                     type="text"
                     value={arrayToString(edu.coursework)}
                     onChange={(e) => updateEducation(index, 'coursework', handleArrayInput(e.target.value))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Data Structures, Algorithms, Database Systems"
                   />
                 </div>
@@ -902,14 +1089,14 @@ export default function CustomResumeForm({
 
       {/* Experience */}
       <MagicalSection isChanged={experienceChanged}>
-        <div className="bg-white rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
-          className="flex items-center justify-between p-4 border-b cursor-pointer"
+          className="flex items-center justify-between p-4 border-b dark:border-gray-700 cursor-pointer"
           onClick={() => toggleSection('experience')}
         >
           <div className="flex items-center">
-            <Briefcase className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-xl font-semibold text-gray-900">Work Experience</h2>
+            <Briefcase className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-3" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Work Experience</h2>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -923,7 +1110,7 @@ export default function CustomResumeForm({
             >
               <Plus className="h-5 w-5" />
             </button>
-            <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${expandedSections.has('experience') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform ${expandedSections.has('experience') ? 'rotate-180' : ''}`} />
           </div>
         </div>
         
@@ -932,7 +1119,7 @@ export default function CustomResumeForm({
             {data.experience.map((exp, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Experience {index + 1}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Experience {index + 1}</h3>
                   <button
                     onClick={() => removeExperience(index)}
                     className="p-1 text-red-600 hover:text-red-800"
@@ -944,21 +1131,21 @@ export default function CustomResumeForm({
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
                     <input
                       type="text"
                       value={exp.position}
                       onChange={(e) => updateExperience(index, 'position', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company</label>
                     <input
                       type="text"
                       value={exp.company}
                       onChange={(e) => updateExperience(index, 'company', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -966,7 +1153,7 @@ export default function CustomResumeForm({
                 {/* Location */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Location</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
                     <label className="flex items-center">
                       <input
                         type="checkbox"
@@ -984,7 +1171,7 @@ export default function CustomResumeForm({
                         }}
                         className="mr-2"
                       />
-                      <span className="text-sm text-gray-700">Remote position</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Remote position</span>
                     </label>
                   </div>
                   {!exp.location.remote && (
@@ -994,26 +1181,26 @@ export default function CustomResumeForm({
                         placeholder="City"
                         value={exp.location.city}
                         onChange={(e) => updateExperienceLocation(index, 'city', e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                       <input
                         type="text"
                         placeholder="State"
                         value={exp.location.state}
                         onChange={(e) => updateExperienceLocation(index, 'state', e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                       <input
                         type="text"
                         placeholder="Country"
                         value={exp.location.country}
                         onChange={(e) => updateExperienceLocation(index, 'country', e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                   )}
                   {exp.location.remote && (
-                    <div className="text-sm text-gray-500 italic">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 italic">
                       Location fields are hidden for remote positions
                     </div>
                   )}
@@ -1023,50 +1210,50 @@ export default function CustomResumeForm({
                 <div className="space-y-4 mb-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
                       <div className="flex space-x-2">
                         <input
                           type="text"
                           placeholder="Month"
                           value={exp.duration.start.month}
                           onChange={(e) => updateExperienceDuration(index, 'start', 'month', e.target.value)}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                         <input
                           type="number"
                           placeholder="Year"
                           value={exp.duration.start.year || ''}
                           onChange={(e) => updateExperienceDuration(index, 'start', 'year', e.target.value ? parseInt(e.target.value) : '')}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
                       <div className="flex space-x-2">
                         <input
                           type="text"
                           placeholder="Month"
                           value={exp.duration.end.month}
                           onChange={(e) => updateExperienceDuration(index, 'end', 'month', e.target.value)}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                         <input
                           type="number"
                           placeholder="Year"
                           value={exp.duration.end.year || ''}
                           onChange={(e) => updateExperienceDuration(index, 'end', 'year', e.target.value ? parseInt(e.target.value) : '')}
-                          className="w-20 sm:w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          className="w-20 sm:w-24 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Leave empty if current position</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty if current position</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Responsibilities</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Responsibilities</label>
                     <button
                       onClick={() => addResponsibility(index)}
                       className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100"
@@ -1076,44 +1263,92 @@ export default function CustomResumeForm({
                       Add
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    {exp.responsibilities.map((responsibility, respIndex) => (
-                      <div key={respIndex} className="flex items-start space-x-2">
-                        <div className="flex-1">
-                          <MagicalField 
-                            isChanged={detailedChanges?.experience?.[index]?.responsibilities?.[respIndex] ?? false} 
-                            intensity="strong"
-                          >
-                            <textarea
-                              value={responsibility}
-                              onChange={(e) => updateResponsibility(index, respIndex, e.target.value)}
-                              rows={2}
-                              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                              placeholder="Enter responsibility..."
-                            />
-                          </MagicalField>
+                  <div className="space-y-3">
+                    {exp.responsibilities.map((responsibility, respIndex) => {
+                      const isNew = detailedChanges?.experience?.[index]?.newResponsibilities?.[respIndex] ?? false;
+                      const isEdited = detailedChanges?.experience?.[index]?.responsibilities?.[respIndex] ?? false;
+                      const originalResp = originalData?.experience?.[index]?.responsibilities?.[respIndex];
+                      const [showOriginal, setShowOriginal] = useState(false);
+
+                      return (
+                        <div key={respIndex} className="space-y-2">
+                          <div className="flex items-start space-x-2">
+                            <div className="flex-1">
+                              {isNew ? (
+                                <NewField isNew={true}>
+                                  <textarea
+                                    value={responsibility}
+                                    onChange={(e) => updateResponsibility(index, respIndex, e.target.value)}
+                                    rows={2}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                                    placeholder="Enter responsibility..."
+                                  />
+                                </NewField>
+                              ) : (
+                                <MagicalField
+                                  isChanged={isEdited}
+                                  intensity="strong"
+                                >
+                                  <textarea
+                                    value={responsibility}
+                                    onChange={(e) => updateResponsibility(index, respIndex, e.target.value)}
+                                    rows={2}
+                                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                    placeholder="Enter responsibility..."
+                                  />
+                                </MagicalField>
+                              )}
+                            </div>
+                            <div className="flex flex-col space-y-1 pt-1">
+                              <button
+                                onClick={() => openRewriteDialog(responsibility, index, respIndex)}
+                                className="p-1 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded"
+                                title="Rewrite this responsibility using AI to improve clarity and impact"
+                                disabled={!responsibility.trim()}
+                              >
+                                <Wand2 className="w-4 h-4" />
+                              </button>
+                              {isEdited && originalResp ? (
+                                <button
+                                  onClick={() => revertResponsibility(index, respIndex)}
+                                  className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded"
+                                  title="Revert to original text"
+                                >
+                                  <Undo2 className="w-4 h-4" />
+                                </button>
+                              ) : null}
+                              <button
+                                onClick={() => removeResponsibility(index, respIndex)}
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                                title="Remove this responsibility"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Show original text for edited responsibilities */}
+                          {isEdited && originalResp && (
+                            <div className="ml-8 mr-8">
+                              <button
+                                onClick={() => setShowOriginal(!showOriginal)}
+                                className="flex items-center text-xs text-gray-600 hover:text-gray-800 mb-1"
+                              >
+                                <ChevronRight className={`w-3 h-3 transition-transform ${showOriginal ? 'rotate-90' : ''}`} />
+                                <span className="ml-1">Original text</span>
+                              </button>
+                              {showOriginal && (
+                                <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-md p-2 text-sm text-gray-700 dark:text-gray-300">
+                                  {originalResp}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex flex-col space-y-1 pt-1">
-                          <button
-                            onClick={() => openRewriteDialog(responsibility, index, respIndex)}
-                            className="p-1 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded"
-                            title="Rewrite this responsibility using AI to improve clarity and impact"
-                            disabled={!responsibility.trim()}
-                          >
-                            <Wand2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => removeResponsibility(index, respIndex)}
-                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                            title="Remove this responsibility"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {exp.responsibilities.length === 0 && (
-                      <div className="text-gray-500 text-sm italic py-2">
+                      <div className="text-gray-500 dark:text-gray-400 text-sm italic py-2">
                         No responsibilities added yet. Click &quot;Add&quot; to add your first responsibility.
                       </div>
                     )}
@@ -1128,14 +1363,14 @@ export default function CustomResumeForm({
 
       {/* Projects */}
       <MagicalSection isChanged={projectsChanged}>
-        <div className="bg-white rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
-          className="flex items-center justify-between p-4 border-b cursor-pointer"
+          className="flex items-center justify-between p-4 border-b dark:border-gray-700 cursor-pointer"
           onClick={() => toggleSection('projects')}
         >
           <div className="flex items-center">
-            <FolderOpen className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-xl font-semibold text-gray-900">Projects</h2>
+            <FolderOpen className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-3" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Projects</h2>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -1149,7 +1384,7 @@ export default function CustomResumeForm({
             >
               <Plus className="h-5 w-5" />
             </button>
-            <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${expandedSections.has('projects') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform ${expandedSections.has('projects') ? 'rotate-180' : ''}`} />
           </div>
         </div>
         
@@ -1158,7 +1393,7 @@ export default function CustomResumeForm({
             {data.projects.map((project, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Project {index + 1}</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Project {index + 1}</h3>
                   <button
                     onClick={() => removeProject(index)}
                     className="p-1 text-red-600 hover:text-red-800"
@@ -1170,18 +1405,18 @@ export default function CustomResumeForm({
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Name</label>
                     <input
                       type="text"
                       value={project.name}
                       onChange={(e) => updateProject(index, 'name', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">Description</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
                       <button
                         onClick={() => addProjectDescription(index)}
                         className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100"
@@ -1228,7 +1463,7 @@ export default function CustomResumeForm({
                         </div>
                       ))}
                       {project.description.length === 0 && (
-                        <div className="text-gray-500 text-sm italic py-2">
+                        <div className="text-gray-500 dark:text-gray-400 text-sm italic py-2">
                           No description points added yet. Click &quot;Add&quot; to add your first point.
                         </div>
                       )}
@@ -1236,12 +1471,12 @@ export default function CustomResumeForm({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tools Used (comma-separated)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tools Used (comma-separated)</label>
                     <input
                       type="text"
                       value={arrayToString(project.toolsUsed)}
                       onChange={(e) => updateProject(index, 'toolsUsed', handleArrayInput(e.target.value))}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       placeholder="React, Node.js, MongoDB, Docker"
                     />
                   </div>
@@ -1255,106 +1490,287 @@ export default function CustomResumeForm({
 
       {/* Technologies */}
       <MagicalSection isChanged={technologiesChanged}>
-        <div className="bg-white rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
-          className="flex items-center justify-between p-4 border-b cursor-pointer"
+          className="flex items-center justify-between p-4 border-b dark:border-gray-700 cursor-pointer"
           onClick={() => toggleSection('technologies')}
         >
           <div className="flex items-center">
-            <Code className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-xl font-semibold text-gray-900">Technologies</h2>
+            <Code className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-3" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Technologies</h2>
           </div>
-          <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${expandedSections.has('technologies') ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform ${expandedSections.has('technologies') ? 'rotate-180' : ''}`} />
         </div>
         
         {expandedSections.has('technologies') && (
           <div className="p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Programming Languages</label>
-                <MagicalField isChanged={detailedChanges?.technologies?.languages ?? false} intensity="subtle">
+            {/* Show object format (fixed categories) */}
+            {isTechObject(data.technologies) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Programming Languages</label>
+                  <MagicalField isChanged={detailedChanges?.technologies?.languages?.hasChanges ?? false} intensity="subtle">
+                    <input
+                      type="text"
+                      value={arrayToString(data.technologies.languages)}
+                      onChange={(e) => updateTechnologyArray('languages', handleArrayInput(e.target.value))}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="JavaScript, Python, Java, C++"
+                    />
+                  </MagicalField>
+                  {detailedChanges?.technologies?.languages && (detailedChanges.technologies.languages.added.length > 0 || detailedChanges.technologies.languages.removed.length > 0) && (
+                    <div className="mt-1 text-xs space-y-1">
+                      {detailedChanges.technologies.languages.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.languages.added.join(', ')}</div>
+                      )}
+                      {detailedChanges.technologies.languages.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.languages.removed.join(', ')}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Backend Technologies</label>
+                  <MagicalField isChanged={detailedChanges?.technologies?.backend?.hasChanges ?? false} intensity="subtle">
+                    <input
+                      type="text"
+                      value={arrayToString(data.technologies.backend)}
+                      onChange={(e) => updateTechnologyArray('backend', handleArrayInput(e.target.value))}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Node.js, Express, Django, Spring Boot"
+                    />
+                  </MagicalField>
+                  {detailedChanges?.technologies?.backend && (detailedChanges.technologies.backend.added.length > 0 || detailedChanges.technologies.backend.removed.length > 0) && (
+                    <div className="mt-1 text-xs space-y-1">
+                      {detailedChanges.technologies.backend.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.backend.added.join(', ')}</div>
+                      )}
+                      {detailedChanges.technologies.backend.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.backend.removed.join(', ')}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frontend Technologies</label>
+                  <MagicalField isChanged={detailedChanges?.technologies?.frontend?.hasChanges ?? false} intensity="subtle">
+                    <input
+                      type="text"
+                      value={arrayToString(data.technologies.frontend)}
+                      onChange={(e) => updateTechnologyArray('frontend', handleArrayInput(e.target.value))}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="React, Vue, Angular, HTML, CSS"
+                    />
+                  </MagicalField>
+                  {detailedChanges?.technologies?.frontend && (detailedChanges.technologies.frontend.added.length > 0 || detailedChanges.technologies.frontend.removed.length > 0) && (
+                    <div className="mt-1 text-xs space-y-1">
+                      {detailedChanges.technologies.frontend.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.frontend.added.join(', ')}</div>
+                      )}
+                      {detailedChanges.technologies.frontend.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.frontend.removed.join(', ')}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cloud & DevOps</label>
+                  <MagicalField isChanged={detailedChanges?.technologies?.cloudAndDevOps?.hasChanges ?? false} intensity="subtle">
+                    <input
+                      type="text"
+                      value={arrayToString(data.technologies.cloudAndDevOps)}
+                      onChange={(e) => updateTechnologyArray('cloudAndDevOps', handleArrayInput(e.target.value))}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="AWS, Docker, Kubernetes, Azure"
+                    />
+                  </MagicalField>
+                  {detailedChanges?.technologies?.cloudAndDevOps && (detailedChanges.technologies.cloudAndDevOps.added.length > 0 || detailedChanges.technologies.cloudAndDevOps.removed.length > 0) && (
+                    <div className="mt-1 text-xs space-y-1">
+                      {detailedChanges.technologies.cloudAndDevOps.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.cloudAndDevOps.added.join(', ')}</div>
+                      )}
+                      {detailedChanges.technologies.cloudAndDevOps.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.cloudAndDevOps.removed.join(', ')}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SQL Databases</label>
                   <input
                     type="text"
-                    value={arrayToString(data.technologies.languages)}
-                    onChange={(e) => updateTechnologyArray('languages', handleArrayInput(e.target.value))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="JavaScript, Python, Java, C++"
+                    value={arrayToString(data.technologies.databases.sql)}
+                    onChange={(e) => updateDatabaseArray('sql', handleArrayInput(e.target.value))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="PostgreSQL, MySQL, SQL Server"
                   />
-                </MagicalField>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Backend Technologies</label>
-                <MagicalField isChanged={detailedChanges?.technologies?.backend ?? false} intensity="subtle">
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NoSQL Databases</label>
                   <input
                     type="text"
-                    value={arrayToString(data.technologies.backend)}
-                    onChange={(e) => updateTechnologyArray('backend', handleArrayInput(e.target.value))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Node.js, Express, Django, Spring Boot"
+                    value={arrayToString(data.technologies.databases.nosql)}
+                    onChange={(e) => updateDatabaseArray('nosql', handleArrayInput(e.target.value))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="MongoDB, Redis, Cassandra"
                   />
-                </MagicalField>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CI/CD & Automation</label>
+                  <input
+                    type="text"
+                    value={arrayToString(data.technologies.cicdAndAutomation)}
+                    onChange={(e) => updateTechnologyArray('cicdAndAutomation', handleArrayInput(e.target.value))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="GitHub Actions, Jenkins, GitLab CI"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Testing & Debugging</label>
+                  <input
+                    type="text"
+                    value={arrayToString(data.technologies.testingAndDebugging)}
+                    onChange={(e) => updateTechnologyArray('testingAndDebugging', handleArrayInput(e.target.value))}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Jest, Cypress, Selenium, Mocha"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Frontend Technologies</label>
-                <input
-                  type="text"
-                  value={arrayToString(data.technologies.frontend)}
-                  onChange={(e) => updateTechnologyArray('frontend', handleArrayInput(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="React, Vue, Angular, HTML, CSS"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cloud & DevOps</label>
-                <input
-                  type="text"
-                  value={arrayToString(data.technologies.cloudAndDevOps)}
-                  onChange={(e) => updateTechnologyArray('cloudAndDevOps', handleArrayInput(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="AWS, Docker, Kubernetes, Azure"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SQL Databases</label>
-                <input
-                  type="text"
-                  value={arrayToString(data.technologies.databases.sql)}
-                  onChange={(e) => updateDatabaseArray('sql', handleArrayInput(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="PostgreSQL, MySQL, SQL Server"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">NoSQL Databases</label>
-                <input
-                  type="text"
-                  value={arrayToString(data.technologies.databases.nosql)}
-                  onChange={(e) => updateDatabaseArray('nosql', handleArrayInput(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="MongoDB, Redis, Cassandra"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CI/CD & Automation</label>
-                <input
-                  type="text"
-                  value={arrayToString(data.technologies.cicdAndAutomation)}
-                  onChange={(e) => updateTechnologyArray('cicdAndAutomation', handleArrayInput(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="GitHub Actions, Jenkins, GitLab CI"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Testing & Debugging</label>
-                <input
-                  type="text"
-                  value={arrayToString(data.technologies.testingAndDebugging)}
-                  onChange={(e) => updateTechnologyArray('testingAndDebugging', handleArrayInput(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Jest, Cypress, Selenium, Mocha"
-                />
-              </div>
-            </div>
+            )}
+
+            {/* Show array format (dynamic categories) */}
+            {Array.isArray(data.technologies) && (
+              <>
+                {data.technologies.map((tech, index) => {
+                  const categoryChanges = (detailedChanges?.technologies as any)?.isArrayFormat
+                    ? (detailedChanges.technologies as any).categories?.[index]
+                    : null;
+                  const isNewCategory = categoryChanges?.isNewCategory ?? false;
+                  const categoryRenamed = categoryChanges?.categoryRenamed ?? false;
+                  const techChanges = categoryChanges?.technologies;
+
+                  return (
+                    <div key={index}>
+                      {isNewCategory ? (
+                        <NewField isNew={true}>
+                          <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-green-200 dark:border-green-700">
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white">{tech.category}</h3>
+                                <span className="text-xs text-green-600 dark:text-green-400 font-medium">NEW CATEGORY</span>
+                              </div>
+                              <button
+                                onClick={() => removeTechnologyCategory(index)}
+                                className="p-1 text-red-600 hover:text-red-800"
+                                title="Delete this technology category"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="space-y-3">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category Name</label>
+                                <input
+                                  type="text"
+                                  value={tech.category}
+                                  onChange={(e) => updateTechnologyCategory(index, e.target.value)}
+                                  className="w-full border border-green-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  placeholder="e.g., Programming Languages, Frameworks, Tools"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Technologies (comma-separated)</label>
+                                <input
+                                  type="text"
+                                  value={arrayToString(tech.items)}
+                                  onChange={(e) => updateTechnologyItems(index, handleArrayInput(e.target.value))}
+                                  className="w-full border border-green-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  placeholder="e.g., JavaScript, Python, Java"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </NewField>
+                      ) : (
+                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{tech.category}</h3>
+                              {categoryRenamed && categoryChanges?.originalCategory && (
+                                <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                                  Renamed from: {categoryChanges.originalCategory}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => removeTechnologyCategory(index)}
+                              className="p-1 text-red-600 hover:text-red-800"
+                              title="Delete this technology category"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category Name</label>
+                              <MagicalField isChanged={categoryRenamed} intensity="subtle">
+                                <input
+                                  type="text"
+                                  value={tech.category}
+                                  onChange={(e) => updateTechnologyCategory(index, e.target.value)}
+                                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="e.g., Programming Languages, Frameworks, Tools"
+                                />
+                              </MagicalField>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Technologies (comma-separated)</label>
+                              <MagicalField isChanged={techChanges?.hasChanges ?? false} intensity="subtle">
+                                <input
+                                  type="text"
+                                  value={arrayToString(tech.items)}
+                                  onChange={(e) => updateTechnologyItems(index, handleArrayInput(e.target.value))}
+                                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="e.g., JavaScript, Python, Java"
+                                />
+                              </MagicalField>
+                              {techChanges && (techChanges.added.length > 0 || techChanges.removed.length > 0) && (
+                                <div className="mt-1 text-xs space-y-1">
+                                  {techChanges.added.length > 0 && (
+                                    <div className="text-green-600 dark:text-green-400">+ Added: {techChanges.added.join(', ')}</div>
+                                  )}
+                                  {techChanges.removed.length > 0 && (
+                                    <div className="text-red-600 dark:text-red-400">- Removed: {techChanges.removed.join(', ')}</div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {data.technologies.length === 0 && (
+                  <div className="text-gray-500 dark:text-gray-400 text-sm italic py-4 text-center">
+                    No technology categories added yet. Click "Add Category" to add your first category.
+                  </div>
+                )}
+
+                <button
+                  onClick={addTechnologyCategory}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Category
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { FileText, LogIn, UserPlus, Home, LayoutDashboard, LogOut, Settings } from 'lucide-react';
 import { isAuthenticated, validateTokenWithServer, removeToken } from '@/lib/auth';
+import ThemeToggle from './ThemeToggle';
 
 interface LayoutProps {
   children: ReactNode;
@@ -46,7 +47,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
 
     if (authenticated) {
       return (
-        <div className="flex space-x-4">
+        <>
           {pathname !== '/dashboard' && (
             <Link
               href="/dashboard"
@@ -81,12 +82,12 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </button>
-        </div>
+        </>
       );
     }
 
     return (
-      <div className="flex space-x-4">
+      <>
         {pathname !== '/' && (
           <Link
             href="/"
@@ -114,12 +115,12 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             Sign Up
           </Link>
         )}
-      </div>
+      </>
     );
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Magical Background Styles */}
       <style jsx global>{`
         @keyframes resumeFloat {
@@ -245,18 +246,15 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         }
       `}</style>
 
-      {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800"></div>
-      
       {/* Floating Orbs */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/30 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-500/30 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500/30 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/30 dark:bg-blue-400/20 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl animate-blob"></div>
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-purple-500/30 dark:bg-purple-400/20 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500/30 dark:bg-pink-400/20 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl animate-blob animation-delay-4000"></div>
       </div>
-      
+
       {/* Grid Pattern */}
-      <div className="absolute inset-0 opacity-20">
+      <div className="absolute inset-0 opacity-20 dark:opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: `radial-gradient(circle at 25px 25px, rgba(255,255,255,0.1) 2px, transparent 0)`,
           backgroundSize: '50px 50px'
@@ -266,7 +264,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
       {/* Magical Resume Background */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Resume Template 1 - Classic */}
-        <div className="resume-template resume-1 absolute top-20 right-10 w-48 h-64 bg-white rounded-lg shadow-lg transform rotate-12 opacity-80">
+        <div className="resume-template resume-1 absolute top-20 right-10 w-48 h-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg transform rotate-12 opacity-80 dark:opacity-60">
           <div className="p-4 space-y-2">
             <div className="h-3 bg-gray-800 rounded w-3/4"></div>
             <div className="h-2 bg-gray-400 rounded w-1/2"></div>
@@ -283,7 +281,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         </div>
 
         {/* Resume Template 2 - Modern */}
-        <div className="resume-template resume-2 absolute top-32 left-16 w-48 h-64 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow-lg transform -rotate-6 opacity-70">
+        <div className="resume-template resume-2 absolute top-32 left-16 w-48 h-64 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 rounded-lg shadow-lg transform -rotate-6 opacity-70 dark:opacity-50">
           <div className="p-4 space-y-2">
             <div className="flex items-center space-x-2">
               <div className="w-6 h-6 bg-purple-500 rounded-full"></div>
@@ -304,7 +302,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         </div>
 
         {/* Resume Template 3 - Creative */}
-        <div className="resume-template resume-3 absolute bottom-32 right-20 w-48 h-64 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg shadow-lg transform rotate-3 opacity-75">
+        <div className="resume-template resume-3 absolute bottom-32 right-20 w-48 h-64 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/30 dark:to-blue-900/30 rounded-lg shadow-lg transform rotate-3 opacity-75 dark:opacity-50">
           <div className="p-4">
             <div className="border-l-4 border-cyan-500 pl-3 mb-4">
               <div className="h-3 bg-gray-800 rounded w-3/4 mb-1"></div>
@@ -332,7 +330,7 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         </div>
 
         {/* Resume Template 4 - Minimalist */}
-        <div className="resume-template resume-4 absolute bottom-20 left-12 w-48 h-64 bg-white rounded-lg shadow-lg transform -rotate-12 opacity-60">
+        <div className="resume-template resume-4 absolute bottom-20 left-12 w-48 h-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg transform -rotate-12 opacity-60 dark:opacity-40">
           <div className="p-4 space-y-3">
             <div className="text-center border-b border-gray-200 pb-3">
               <div className="h-2 bg-gray-800 rounded w-2/3 mx-auto mb-2"></div>
@@ -366,10 +364,13 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             <nav className="pt-8 pb-6">
               <div className="flex justify-between items-center">
                 <Link href="/" className="flex items-center group">
-                  <FileText className="h-8 w-8 text-indigo-400 mr-2 group-hover:text-indigo-300 transition-colors" />
+                  <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2 group-hover:text-indigo-300 dark:group-hover:text-indigo-200 transition-colors" />
                   <span className="text-xl font-bold text-white group-hover:text-indigo-100 transition-colors">Resume Creator</span>
                 </Link>
-                {getNavButtons()}
+                <div className="flex items-center space-x-3">
+                  <ThemeToggle />
+                  {getNavButtons()}
+                </div>
               </div>
             </nav>
           </div>

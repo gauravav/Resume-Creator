@@ -15,7 +15,7 @@ import {
   FileCode,
   Loader
 } from 'lucide-react';
-import { authApi } from '@/lib/api';
+import { authApi, getApiBaseUrl } from '@/lib/api';
 import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
 import Layout from '@/components/Layout';
 
@@ -82,15 +82,6 @@ Proficient in JavaScript, Python, and cloud technologies.
 \\textbf{Tools:} Git, Docker, Kubernetes, AWS
 
 \\end{document}`;
-
-  // Get API base URL
-  const getApiBaseUrl = () => {
-    const isLocalhost = typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    return isLocalhost
-      ? process.env.NEXT_PUBLIC_API_URL_DEV || 'http://localhost:3200'
-      : process.env.NEXT_PUBLIC_API_URL_PROD || 'http://143.198.11.73:3200';
-  };
 
   useEffect(() => {
     const validateAndLoad = async () => {

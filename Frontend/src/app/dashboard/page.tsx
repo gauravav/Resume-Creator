@@ -16,10 +16,12 @@ import {
   Zap,
   RotateCcw
 } from 'lucide-react';
-import { resumeApi, Resume, authApi, tokenApi } from '@/lib/api';
+import { resumeApi, Resume, authApi, tokenApi, accountApi } from '@/lib/api';
 import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
+import { formatDateTime } from '@/lib/timezone';
 import Layout from '@/components/Layout';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function DashboardPage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   const [isValidating, setIsValidating] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string; isAdmin?: boolean} | null>(null);
+  const [userTimezone, setUserTimezone] = useState<string>('UTC');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -40,6 +43,7 @@ export default function DashboardPage() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tokenUsage, setTokenUsage] = useState<{totalTokens: number} | null>(null);
   const [tokenResetLoading, setTokenResetLoading] = useState(false);
+  const [generatingPDFs, setGeneratingPDFs] = useState<Set<number>>(new Set());
   const router = useRouter();
 
   // Close user menu when clicking outside
@@ -82,10 +86,66 @@ export default function DashboardPage() {
     validateAndLoad();
   }, [router]);
 
+  // Subscribe to real-time PDF status updates via SSE
+  // Only establish connection after authentication is validated
+  useEffect(() => {
+    // Don't establish connection if still validating or user not authenticated
+    if (isValidating) {
+      return;
+    }
+
+    console.log('Setting up SSE connection...');
+
+    const eventSource = resumeApi.subscribeToPDFUpdates(
+      (data) => {
+        console.log('Received PDF status update:', data);
+
+        if (data.type === 'pdf_status_update') {
+          // Update the resume in state
+          setResumes(prev => prev.map(r =>
+            r.id === data.resumeId
+              ? {
+                  ...r,
+                  pdfStatus: data.status,
+                  pdfFileName: data.pdfFileName || r.pdfFileName,
+                  pdfGeneratedAt: data.pdfGeneratedAt || r.pdfGeneratedAt
+                }
+              : r
+          ));
+
+          // Show success notification when PDF is ready
+          if (data.status === 'ready') {
+            console.log(`PDF ready for resume ${data.resumeId}`);
+          } else if (data.status === 'failed') {
+            console.error(`PDF generation failed for resume ${data.resumeId}:`, data.message);
+          }
+        }
+      },
+      (error) => {
+        console.error('SSE connection error:', error);
+        // SSE will automatically reconnect, so we don't need to handle this explicitly
+      }
+    );
+
+    // Cleanup: close SSE connection when component unmounts
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+        console.log('SSE connection closed');
+      }
+    };
+  }, [isValidating]); // Wait for authentication validation to complete
+
   const fetchUserData = async () => {
     try {
       const response = await authApi.getMe();
       setUser(response.user);
+
+      // Fetch user profile to get timezone
+      const profileResponse = await accountApi.getProfile();
+      if (profileResponse.data && profileResponse.data.timezone) {
+        setUserTimezone(profileResponse.data.timezone);
+      }
     } catch {
       console.error('Failed to fetch user data');
     }
@@ -152,8 +212,18 @@ export default function DashboardPage() {
   };
 
   const handleDownloadPDF = async (resume: Resume) => {
+    if (resume.pdfStatus !== 'ready') {
+      if (resume.pdfStatus === 'generating') {
+        setError('PDF is still being generated. Please wait a moment.');
+      } else if (resume.pdfStatus === 'failed') {
+        setError('PDF generation failed. Please try re-uploading the resume.');
+      } else {
+        setError('PDF is not ready yet. Please wait for generation to complete.');
+      }
+      return;
+    }
+
     try {
-      // Download PDF
       const blob = await resumeApi.downloadPDF(resume.id);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -163,9 +233,20 @@ export default function DashboardPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF download error:', error);
-      setError('Failed to download PDF. Please ensure the resume has valid data.');
+      if (error?.response?.data?.pdfStatus) {
+        const status = error.response.data.pdfStatus;
+        if (status === 'generating') {
+          setError('PDF is still being generated. Please try again in a moment.');
+        } else if (status === 'failed') {
+          setError('PDF generation failed. Please contact support.');
+        } else {
+          setError('PDF is not ready yet. Please wait.');
+        }
+      } else {
+        setError('Failed to download PDF. Please ensure the resume has valid data.');
+      }
     }
   };
 
@@ -202,13 +283,7 @@ export default function DashboardPage() {
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTime(dateString, userTimezone);
   };
 
   if (isValidating || isLoading) {
@@ -235,11 +310,13 @@ export default function DashboardPage() {
             <nav className="pt-8 pb-6">
               <div className="flex justify-between items-center">
                 <Link href="/" className="flex items-center group">
-                  <FileText className="h-8 w-8 text-indigo-400 mr-2 group-hover:text-indigo-300 transition-colors" />
+                  <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2 group-hover:text-indigo-300 dark:group-hover:text-indigo-200 transition-colors" />
                   <span className="text-xl font-bold text-white group-hover:text-indigo-100 transition-colors">Resume Creator</span>
                 </Link>
-                
-                {user && (
+
+                <div className="flex items-center space-x-3">
+                  <ThemeToggle />
+                  {user && (
                   <div className="relative" data-user-menu>
                     <button
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -253,25 +330,25 @@ export default function DashboardPage() {
                     </button>
 
                     {userMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-50">
                         <div className="py-1">
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
-                              // TODO: Navigate to account page when implemented
+                              router.push('/account');
                             }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                           >
                             <User className="h-4 w-4 mr-2" />
                             Account
                           </button>
                           {user.isAdmin && (
                             <>
-                              <hr className="border-gray-100" />
+                              <hr className="border-gray-100 dark:border-gray-700" />
                               <Link
                                 href="/admin"
                                 onClick={() => setUserMenuOpen(false)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
+                                className="flex items-center w-full px-4 py-2 text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30"
                               >
                                 <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -280,13 +357,13 @@ export default function DashboardPage() {
                               </Link>
                             </>
                           )}
-                          <hr className="border-gray-100" />
+                          <hr className="border-gray-100 dark:border-gray-700" />
                           <button
                             onClick={() => {
                               setUserMenuOpen(false);
                               handleLogout();
                             }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
+                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
                           >
                             <LogOut className="h-4 w-4 mr-2" />
                             Sign Out
@@ -295,7 +372,8 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                )}
+                  )}
+                </div>
               </div>
             </nav>
           </div>
@@ -314,24 +392,24 @@ export default function DashboardPage() {
 
         {/* Token Usage Section */}
         {tokenUsage && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                  <Zap className="h-5 w-5 text-yellow-500 mr-2" />
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                  <Zap className="h-5 w-5 text-yellow-500 dark:text-yellow-400 mr-2" />
                   Token Usage
                 </h2>
                 <div className="flex items-center space-x-3">
                   <Link
                     href="/token-history"
-                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
                   >
                     View History
                   </Link>
                   <button
                     onClick={handleResetTokens}
                     disabled={tokenResetLoading}
-                    className="inline-flex items-center px-3 py-1 border border-red-300 rounded-md text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    className="inline-flex items-center px-3 py-1 border border-red-300 dark:border-red-700 rounded-md text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50"
                     title="Reset your token count to zero"
                   >
                     {tokenResetLoading ? (
@@ -347,14 +425,14 @@ export default function DashboardPage() {
             <div className="p-6">
               <div className="flex items-center">
                 <div className="flex-1">
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
                     {tokenUsage.totalTokens.toLocaleString()}
                   </p>
-                  <p className="text-sm text-gray-500">Total tokens used</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total tokens used</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600 mb-1">Track your API usage</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Track your API usage</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
                     Includes resume parsing, customization, and rewriting
                   </p>
                 </div>
@@ -366,17 +444,17 @@ export default function DashboardPage() {
         {/* Actions Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* New Resume */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">New Resume</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">New Resume</h2>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 text-sm mb-4">
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                 Create a new resume from an uploaded file and save the structured data for editing and customization.
               </p>
               <Link
                 href="/parse-resume"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600"
                 title="Upload and parse a new resume file to create structured data"
               >
                 <FileText className="h-4 w-4 mr-2" />
@@ -386,17 +464,17 @@ export default function DashboardPage() {
           </div>
 
           {/* Create Custom Resume */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Create Custom Resume</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white">Create Custom Resume</h2>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 text-sm mb-4">
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
                 Create a tailored resume for a specific job opportunity using your base resume.
               </p>
               <Link
                 href="/create"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600"
                 title="Create a tailored resume for a specific job using AI customization"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
@@ -408,35 +486,35 @@ export default function DashboardPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-            <p className="text-red-700 text-sm">{error}</p>
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md p-4 mb-6">
+            <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
           </div>
         )}
 
         {/* Resumes List */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Your Resumes</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Your Resumes</h2>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {resumes.length === 0 ? (
               <div className="px-6 py-12 text-center">
-                <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No resumes yet</h3>
-                <p className="text-gray-500">Upload your first resume to get started.</p>
+                <FileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No resumes yet</h3>
+                <p className="text-gray-500 dark:text-gray-400">Upload your first resume to get started.</p>
               </div>
             ) : (
               resumes.map((resume) => (
-                <div key={resume.id} className="px-6 py-4 hover:bg-gray-50">
+                <div key={resume.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <FileText className="h-8 w-8 text-indigo-600 mr-3" />
+                      <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mr-3" />
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                           {resume.originalName}
                         </h3>
-                        <p className="text-sm text-gray-500">
-                          {formatDate(resume.uploadDate)} • {formatFileSize(resume.size)} 
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {formatDate(resume.uploadDate)} • {formatFileSize(resume.size)}
                           {resume.isBaseResume && '• Base Resume'}
                         </p>
                       </div>
@@ -444,21 +522,42 @@ export default function DashboardPage() {
                     <div className="flex items-center space-x-2">
                       <Link
                         href={`/edit-resume/${resume.id}`}
-                        className="inline-flex items-center p-2 border border-blue-300 rounded-md text-blue-700 hover:bg-blue-50"
+                        className="inline-flex items-center p-2 border border-blue-300 dark:border-blue-700 rounded-md text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
                         title="Edit resume content and structure"
                       >
                         <Edit className="h-4 w-4" />
                       </Link>
                       <button
                         onClick={() => handleDownloadPDF(resume)}
-                        className="inline-flex items-center p-2 border border-green-300 rounded-md text-green-700 hover:bg-green-50"
-                        title="Download resume as PDF file"
+                        disabled={resume.pdfStatus !== 'ready'}
+                        className={`inline-flex items-center p-2 border rounded-md ${
+                          resume.pdfStatus === 'ready'
+                            ? 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30'
+                            : resume.pdfStatus === 'generating'
+                            ? 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 cursor-not-allowed opacity-75'
+                            : resume.pdfStatus === 'failed'
+                            ? 'border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 cursor-not-allowed opacity-75'
+                            : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-500 cursor-not-allowed opacity-75'
+                        }`}
+                        title={
+                          resume.pdfStatus === 'ready'
+                            ? 'Download resume as PDF file'
+                            : resume.pdfStatus === 'generating'
+                            ? 'PDF is being generated... Please wait'
+                            : resume.pdfStatus === 'failed'
+                            ? 'PDF generation failed'
+                            : 'PDF generation pending...'
+                        }
                       >
-                        <FileDown className="h-4 w-4" />
+                        {resume.pdfStatus === 'generating' ? (
+                          <RotateCcw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileDown className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => handleDownload(resume)}
-                        className="inline-flex items-center p-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        className="inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="Download resume data as JSON file"
                       >
                         <Download className="h-4 w-4" />
@@ -466,7 +565,7 @@ export default function DashboardPage() {
                       <button
                         onClick={() => handleDeleteClick(resume)}
                         disabled={isDeleting === resume.id}
-                        className="inline-flex items-center p-2 border border-red-300 rounded-md text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        className="inline-flex items-center p-2 border border-red-300 dark:border-red-700 rounded-md text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50"
                         title="Permanently delete this resume"
                       >
                         {isDeleting === resume.id ? (

@@ -17,13 +17,15 @@ import {
   Activity,
   BarChart3
 } from 'lucide-react';
-import { tokenApi, TokenStats, TokenHistory } from '@/lib/api';
+import { tokenApi, accountApi, TokenStats, TokenHistory } from '@/lib/api';
 import { isAuthenticatedWithValidation } from '@/lib/auth';
+import { formatDateTime } from '@/lib/timezone';
 import Layout from '@/components/Layout';
 
 export default function TokenHistoryPage() {
   const [history, setHistory] = useState<TokenHistory | null>(null);
   const [stats, setStats] = useState<TokenStats | null>(null);
+  const [userTimezone, setUserTimezone] = useState<string>('UTC');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,6 +38,12 @@ export default function TokenHistoryPage() {
         if (!isValid) {
           router.push('/login');
           return;
+        }
+
+        // Fetch user profile to get timezone
+        const profileResponse = await accountApi.getProfile();
+        if (profileResponse.data && profileResponse.data.timezone) {
+          setUserTimezone(profileResponse.data.timezone);
         }
 
         await Promise.all([
@@ -79,13 +87,7 @@ export default function TokenHistoryPage() {
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTime(dateString, userTimezone);
   };
 
   const getOperationIcon = (operationType: string) => {
@@ -155,69 +157,69 @@ export default function TokenHistoryPage() {
             <div className="flex items-center mb-4">
               <Link
                 href="/dashboard"
-                className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors mr-4"
+                className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors mr-4"
               >
                 <ArrowLeft className="h-5 w-5 mr-1" />
                 Back to Dashboard
               </Link>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2 flex items-center">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center">
               <Zap className="h-8 w-8 text-yellow-500 mr-3" />
               Token Usage History
             </h1>
-            <p className="text-gray-200">
+            <p className="text-gray-600 dark:text-gray-300">
               Track your API usage and token consumption across all operations.
             </p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md p-4 mb-6">
+              <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
             </div>
           )}
 
           {/* Stats Overview */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <div className="p-3 bg-yellow-100 rounded-lg">
-                    <Zap className="h-6 w-6 text-yellow-600" />
+                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                    <Zap className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {stats.totalTokens.toLocaleString()}
                     </p>
-                    <p className="text-sm text-gray-600">Total Tokens Used</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Tokens Used</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <Activity className="h-6 w-6 text-blue-600" />
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {stats.operationStats.length}
                     </p>
-                    <p className="text-sm text-gray-600">Operation Types</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Operation Types</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <div className="flex items-center">
-                  <div className="p-3 bg-green-100 rounded-lg">
-                    <BarChart3 className="h-6 w-6 text-green-600" />
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {stats.dailyStats.length}
                     </p>
-                    <p className="text-sm text-gray-600">Active Days</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Active Days</p>
                   </div>
                 </div>
               </div>
@@ -226,33 +228,33 @@ export default function TokenHistoryPage() {
 
           {/* Operation Breakdown */}
           {stats && stats.operationStats.length > 0 && (
-            <div className="bg-white rounded-lg shadow mb-8">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                  <BarChart3 className="h-5 w-5 text-gray-500 mr-2" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                  <BarChart3 className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
                   Usage by Operation Type
                 </h2>
               </div>
               <div className="p-6">
                 <div className="space-y-4">
                   {stats.operationStats.map((stat, index) => (
-                    <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                    <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
                       <div className="flex items-center">
                         {getOperationIcon(stat.operation_type)}
                         <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {getOperationLabel(stat.operation_type)}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {stat.operation_count} operations
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-bold text-gray-900">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
                           {parseInt(stat.total_tokens).toLocaleString()} tokens
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           {Math.round(parseInt(stat.avg_tokens))} avg per operation
                         </p>
                       </div>
@@ -264,35 +266,35 @@ export default function TokenHistoryPage() {
           )}
 
           {/* Usage History */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900 flex items-center">
-                <Clock className="h-5 w-5 text-gray-500 mr-2" />
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
                 Recent Usage History
               </h2>
             </div>
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {!history || history.history.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <Zap className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No usage history yet</h3>
-                  <p className="text-gray-500">Start using the resume tools to see your token usage here.</p>
+                  <Zap className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No usage history yet</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Start using the resume tools to see your token usage here.</p>
                 </div>
               ) : (
                 <>
                   {history.history.map((usage) => (
-                    <div key={usage.id} className="px-6 py-4 hover:bg-gray-50">
+                    <div key={usage.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           {getOperationIcon(usage.operation_type)}
                           <div className="ml-3">
-                            <h3 className="text-sm font-medium text-gray-900">
+                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                               {getOperationLabel(usage.operation_type)}
                             </h3>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
                               {getOperationDescription(usage.operation_type, usage.metadata)}
                             </p>
-                            <p className="text-xs text-gray-400 mt-1">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                               <Calendar className="h-3 w-3 inline mr-1" />
                               {formatDate(usage.created_at)}
                             </p>
@@ -300,11 +302,11 @@ export default function TokenHistoryPage() {
                         </div>
                         <div className="text-right">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                            usage.tokens_used > 0 
-                              ? 'bg-yellow-100 text-yellow-800' 
-                              : 'bg-red-100 text-red-800'
+                            usage.tokens_used > 0
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
                           }`}>
-                            {usage.tokens_used > 0 
+                            {usage.tokens_used > 0
                               ? `${usage.tokens_used.toLocaleString()} tokens`
                               : 'Reset'
                             }
@@ -316,9 +318,9 @@ export default function TokenHistoryPage() {
 
                   {/* Pagination */}
                   {history && history.totalPages > 1 && (
-                    <div className="px-6 py-4 border-t border-gray-200">
+                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center text-sm text-gray-500">
+                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                           <span>
                             Showing {((currentPage - 1) * 20) + 1} to {Math.min(currentPage * 20, history.total)} of {history.total} entries
                           </span>
@@ -327,17 +329,17 @@ export default function TokenHistoryPage() {
                           <button
                             onClick={() => handlePageChange(currentPage - 1)}
                             disabled={currentPage <= 1}
-                            className="inline-flex items-center p-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <ChevronLeft className="h-4 w-4" />
                           </button>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
                             Page {currentPage} of {history.totalPages}
                           </span>
                           <button
                             onClick={() => handlePageChange(currentPage + 1)}
                             disabled={currentPage >= history.totalPages}
-                            className="inline-flex items-center p-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <ChevronRight className="h-4 w-4" />
                           </button>

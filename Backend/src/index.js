@@ -22,12 +22,38 @@ const app = express();
 const PORT = process.env.PORT || 3200;
 
 app.use(helmet());
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001', 'http://143.198.11.73:3000'],
+
+// Dynamic CORS configuration to support localhost, network IPs, and production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Define allowed patterns
+    const allowedPatterns = [
+      /^http:\/\/localhost:300[01]$/,           // localhost:3000 or localhost:3001
+      /^http:\/\/127\.0\.0\.1:300[01]$/,        // 127.0.0.1:3000 or 127.0.0.1:3001
+      /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[01]$/, // 192.168.x.x:3000 or :3001
+      /^http:\/\/172\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[01]$/, // 172.x.x.x:3000 or :3001
+      /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[01]$/, // 10.x.x.x:3000 or :3001
+      /^http:\/\/143\.198\.11\.73:3000$/,       // Production server
+    ];
+
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS request from unauthorized origin', { origin });
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Apply general rate limiting
 app.use(RateLimiter.createGeneralLimiter());
@@ -74,16 +100,65 @@ app.use('*', (req, res) => {
 });
 
 const startServer = async () => {
+  const startupErrors = [];
+  let dbConnected = false;
+  let dbInitialized = false;
+  let minioConnected = false;
+
   try {
-    // Initialize database first
-    await checkDatabaseConnection();
-    await initializeDatabase();
-    
-    // Then initialize MinIO
-    await initializeBucket();
-    
+    // Step 1: Check database connection
+    logger.info('🔍 Step 1/3: Checking database connection...');
+    try {
+      await checkDatabaseConnection();
+      dbConnected = true;
+      logger.info('✅ Database connection successful');
+    } catch (error) {
+      startupErrors.push({
+        step: 'Database Connection',
+        error: error.message,
+        critical: true
+      });
+      logger.error('❌ Database connection failed', { error: error.message });
+      throw new Error('Database connection failed');
+    }
+
+    // Step 2: Initialize database (create tables, add columns)
+    logger.info('🔍 Step 2/3: Initializing database schema...');
+    try {
+      await initializeDatabase();
+      dbInitialized = true;
+      logger.info('✅ Database schema initialized');
+    } catch (error) {
+      startupErrors.push({
+        step: 'Database Initialization',
+        error: error.message,
+        critical: true
+      });
+      logger.error('❌ Database initialization failed', { error: error.message });
+      throw new Error('Database initialization failed');
+    }
+
+    // Step 3: Check MinIO connection
+    logger.info('🔍 Step 3/3: Checking file storage (MinIO) connection...');
+    try {
+      await initializeBucket();
+      minioConnected = true;
+      logger.info('✅ File storage (MinIO) connected');
+    } catch (error) {
+      startupErrors.push({
+        step: 'MinIO Connection',
+        error: error.message,
+        critical: true
+      });
+      logger.error('❌ File storage (MinIO) connection failed', { error: error.message });
+      throw new Error('MinIO connection failed');
+    }
+
+    // All checks passed - start the server
+    logger.info('🚀 All pre-flight checks passed. Starting server...');
+
     const server = app.listen(PORT, async () => {
-      logger.info(`Server started successfully on port ${PORT}`, {
+      logger.info(`✅ Server started successfully on port ${PORT}`, {
         port: PORT,
         env: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
@@ -109,7 +184,7 @@ const startServer = async () => {
         });
       }
 
-      // Send startup notification email
+      // Send success startup notification email
       try {
         const result = await emailService.sendServerStartupNotification(PORT, process.env.NODE_ENV);
         if (result.success) {
@@ -127,21 +202,37 @@ const startServer = async () => {
     });
 
     // Graceful shutdown handling
-    process.on('SIGTERM', () => {
-      logger.info('SIGTERM received, shutting down gracefully');
-      server.close(() => {
-        logger.info('Process terminated');
-        process.exit(0);
-      });
-    });
+    const gracefulShutdown = async (signal) => {
+      logger.info(`${signal} received, shutting down gracefully`);
 
-    process.on('SIGINT', () => {
-      logger.info('SIGINT received, shutting down gracefully');
-      server.close(() => {
+      // Stop accepting new connections
+      server.close(async () => {
+        logger.info('HTTP server closed');
+
+        try {
+          // Terminate worker pools
+          const LLMResumeParser = require('./utils/llmResumeParser');
+          if (LLMResumeParser.textExtractionWorkerPool) {
+            await LLMResumeParser.textExtractionWorkerPool.terminate();
+          }
+          logger.info('Worker pools terminated');
+        } catch (error) {
+          logger.error('Error terminating worker pools:', error);
+        }
+
         logger.info('Process terminated');
         process.exit(0);
       });
-    });
+
+      // Force shutdown after 30 seconds if graceful shutdown fails
+      setTimeout(() => {
+        logger.error('Graceful shutdown timeout, forcing exit');
+        process.exit(1);
+      }, 30000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
     // Handle uncaught exceptions
     process.on('uncaughtException', (error) => {
@@ -161,10 +252,31 @@ const startServer = async () => {
     });
 
   } catch (error) {
-    logger.error('Failed to start server', {
+    logger.error('❌ Server startup failed', {
       error: error.message,
       stack: error.stack
     });
+
+    // Send failure notification email
+    try {
+      const errorDetails = {
+        databaseConnection: dbConnected ? 'Connected ✅' : 'Failed ❌',
+        databaseInitialization: dbInitialized ? 'Initialized ✅' : 'Failed ❌',
+        fileStorage: minioConnected ? 'Connected ✅' : 'Failed ❌',
+        errors: startupErrors.map(e => `${e.step}: ${e.error}`).join('\n'),
+        timestamp: new Date().toISOString()
+      };
+
+      await emailService.sendServerStartupFailureNotification(PORT, process.env.NODE_ENV, errorDetails);
+      logger.info('📧 Failure notification email sent');
+    } catch (emailError) {
+      logger.error('Failed to send failure notification email', {
+        error: emailError.message
+      });
+    }
+
+    // Don't start the server - exit with error code
+    logger.error('🛑 Server startup aborted due to errors. Please fix the issues and restart.');
     process.exit(1);
   }
 };
