@@ -3,8 +3,9 @@
 import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { FileText, LogIn, UserPlus, Home, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { FileText, LogIn, UserPlus, Home, LayoutDashboard, LogOut, Settings, Shield } from 'lucide-react';
 import { isAuthenticated, validateTokenWithServer, removeToken } from '@/lib/auth';
+import { authApi } from '@/lib/api';
 import ThemeToggle from './ThemeToggle';
 
 interface LayoutProps {
@@ -12,30 +13,50 @@ interface LayoutProps {
   showNav?: boolean;
 }
 
+interface UserData {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  isAdmin?: boolean;
+}
+
 export default function Layout({ children, showNav = true }: LayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     const validateAuth = async () => {
       // First quick local check
       const localAuth = isAuthenticated();
       setAuthenticated(localAuth);
-      
+
       // Then validate with server if locally authenticated
       if (localAuth) {
         const serverValid = await validateTokenWithServer();
         setAuthenticated(serverValid);
+
+        // Fetch user data if authenticated
+        if (serverValid) {
+          try {
+            const response = await authApi.getMe();
+            setUser(response.user);
+          } catch (error) {
+            console.error('Failed to fetch user data:', error);
+          }
+        }
       }
     };
-    
+
     validateAuth();
   }, []);
 
   const handleLogout = () => {
     removeToken();
     setAuthenticated(false);
+    setUser(null);
     router.push('/');
   };
 
@@ -64,6 +85,15 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
             >
               <FileText className="h-4 w-4 mr-2" />
               New Resume
+            </Link>
+          )}
+          {user?.isAdmin && pathname !== '/admin' && (
+            <Link
+              href="/admin"
+              className="inline-flex items-center px-4 py-2 border border-purple-300 rounded-md text-sm font-medium text-purple-700 bg-purple-50/90 backdrop-blur-sm hover:bg-purple-100/95 transition-all"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              Admin Dashboard
             </Link>
           )}
           {pathname !== '/account' && (
@@ -359,9 +389,9 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
 
       {/* Navigation Bar */}
       {showNav && (
-        <div className="relative z-50">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-indigo-900/95 via-purple-900/95 to-pink-800/95 dark:from-gray-900/95 dark:via-gray-800/95 dark:to-gray-900/95 backdrop-blur-md shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="pt-8 pb-6">
+            <nav className="py-4">
               <div className="flex justify-between items-center">
                 <Link href="/" className="flex items-center group">
                   <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2 group-hover:text-indigo-300 dark:group-hover:text-indigo-200 transition-colors" />
@@ -377,8 +407,8 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
         </div>
       )}
 
-      {/* Content */}
-      <div className="relative z-10">
+      {/* Content with padding to account for fixed navbar */}
+      <div className="relative z-10 pt-20">
         {children}
       </div>
     </div>

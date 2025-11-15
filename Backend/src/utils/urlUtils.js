@@ -11,27 +11,41 @@ function getFrontendUrl(req = null) {
     return process.env.FRONTEND_URL;
   }
 
-  // Try to get host from request if available
-  if (req && req.get('host')) {
-    const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const host = req.get('host');
-    
-    // If request is from localhost, use localhost for frontend
-    if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      return 'http://localhost:3000';
+  // Try to get origin from request headers (most reliable)
+  if (req) {
+    const origin = req.get('origin') || req.get('referer');
+    if (origin) {
+      // Extract base URL from origin/referer
+      try {
+        const url = new URL(origin);
+        return `${url.protocol}//${url.hostname}:3000`;
+      } catch (e) {
+        // If URL parsing fails, continue to next method
+      }
     }
-    
-    // If request has a specific IP/domain, use it with frontend port
-    const backendPort = process.env.PORT || 3200;
-    const frontendPort = 3000;
-    const baseHost = host.replace(`:${backendPort}`, '');
-    
-    return `${protocol}://${baseHost}:${frontendPort}`;
+
+    // Try to get host from request
+    const host = req.get('host');
+    if (host) {
+      const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+
+      // If request is from localhost, use localhost for frontend
+      if (host.includes('localhost') || host.includes('127.0.0.1')) {
+        return 'http://localhost:3000';
+      }
+
+      // If request has a specific IP/domain, use it with frontend port
+      const backendPort = process.env.PORT || 3200;
+      const frontendPort = 3000;
+      const baseHost = host.split(':')[0]; // Get hostname without port
+
+      return `${protocol}://${baseHost}:${frontendPort}`;
+    }
   }
 
   // Fallback: detect if we're running locally or on a server
   const networkInterfaces = os.networkInterfaces();
-  const hasLocalhost = process.env.DB_HOST === 'localhost' || 
+  const hasLocalhost = process.env.DB_HOST === 'localhost' ||
                       process.env.MINIO_ENDPOINT === 'localhost' ||
                       process.env.NODE_ENV === 'development';
 

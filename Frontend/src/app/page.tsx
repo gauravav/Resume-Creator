@@ -17,8 +17,8 @@ export default function Home() {
   }, [router]);
 
   return (
-    <Layout showNav={false}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <main className="text-center py-16 relative overflow-hidden">
           <div className="max-w-4xl mx-auto relative z-10">

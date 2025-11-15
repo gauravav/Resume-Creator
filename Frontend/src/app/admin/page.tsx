@@ -4,10 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  FileText,
-  User,
-  LogOut,
-  ChevronDown,
   CheckCircle,
   XCircle,
   RotateCcw,
@@ -20,9 +16,8 @@ import {
   FileCode
 } from 'lucide-react';
 import { authApi, getApiBaseUrl } from '@/lib/api';
-import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
+import { isAuthenticatedWithValidation } from '@/lib/auth';
 import Layout from '@/components/Layout';
-import ThemeToggle from '@/components/ThemeToggle';
 
 interface DashboardStats {
   totalUsers: number;
@@ -59,7 +54,6 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(true);
   const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string; isAdmin: boolean} | null>(null);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -252,11 +246,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    removeToken();
-    router.push('/');
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -298,74 +287,18 @@ export default function AdminDashboard() {
   }
 
   return (
-    <Layout showNav={false}>
+    <Layout>
       <div className="min-h-screen">
-        {/* Custom Header */}
-        <div className="relative z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="pt-8 pb-6">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-4">
-                  <Link href="/" className="flex items-center group">
-                    <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2 group-hover:text-indigo-300 dark:group-hover:text-indigo-200 transition-colors" />
-                    <span className="text-xl font-bold text-white group-hover:text-indigo-100 transition-colors">Resume Creator</span>
-                  </Link>
-                  <div className="hidden sm:block">
-                    <span className="bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Admin Dashboard
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <ThemeToggle />
-                  {user && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center space-x-3 text-white hover:text-indigo-200 transition-colors bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <User className="h-5 w-5" />
-                        <span className="font-medium">{user.firstName} {user.lastName}</span>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {userMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
-                        <div className="py-1">
-                          <Link
-                            href="/dashboard"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <User className="h-4 w-4 mr-2" />
-                            User Dashboard
-                          </Link>
-                          <hr className="border-gray-100" />
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              handleLogout();
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                          >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  )}
-                </div>
-              </div>
-            </nav>
-          </div>
-        </div>
-
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Admin Dashboard Header */}
+          <div className="mb-8">
+            <div className="flex items-center space-x-3">
+              <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+              <span className="bg-purple-500 dark:bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                Admin
+              </span>
+            </div>
+          </div>
           {/* Messages */}
           {error && (
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md p-4 mb-6">
