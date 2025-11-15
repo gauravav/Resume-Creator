@@ -18,33 +18,7 @@ export default function Home() {
 
   return (
     <Layout showNav={false}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <header className="pt-8 pb-12">
-          <nav className="flex justify-between items-center">
-            <div className="flex items-center">
-              <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2" />
-              <span className="text-xl font-bold text-white">Resume Creator</span>
-            </div>
-            <div className="flex space-x-4">
-              <Link
-                href="/login"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white/95 dark:hover:bg-gray-700/95 transition-all"
-              >
-                <LogIn className="h-4 w-4 mr-2" />
-                Sign In
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 transition-all"
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Sign Up
-              </Link>
-            </div>
-          </nav>
-        </header>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         {/* Hero Section */}
         <main className="text-center py-16 relative overflow-hidden">
           <div className="max-w-4xl mx-auto relative z-10">

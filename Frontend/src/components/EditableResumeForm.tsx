@@ -648,7 +648,7 @@ export default function EditableResumeForm({
 
       {/* Personal Information */}
       <MagicalSection isChanged={personalInfoChanged}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <div className="personal-info-section bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
           className="flex items-center justify-between p-4 border-b cursor-pointer"
           onClick={() => toggleSection('personalInfo')}
@@ -861,7 +861,7 @@ export default function EditableResumeForm({
 
       {/* Education */}
       <MagicalSection isChanged={educationChanged}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <div className="education-section bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
           className="flex items-center justify-between p-4 border-b cursor-pointer"
           onClick={() => toggleSection('education')}
@@ -996,7 +996,7 @@ export default function EditableResumeForm({
 
       {/* Experience */}
       <MagicalSection isChanged={experienceChanged}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <div className="experience-section bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
           className="flex items-center justify-between p-4 border-b cursor-pointer"
           onClick={() => toggleSection('experience')}
@@ -1339,7 +1339,7 @@ export default function EditableResumeForm({
 
       {/* Technologies */}
       <MagicalSection isChanged={technologiesChanged}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+        <div className="skills-section bg-white dark:bg-gray-800 rounded-lg shadow-md">
         <div 
           className="flex items-center justify-between p-4 border-b cursor-pointer"
           onClick={() => toggleSection('technologies')}
@@ -1415,7 +1415,7 @@ export default function EditableResumeForm({
         <button
           onClick={() => onSave(data)}
           disabled={isSaving}
-          className="inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          className="save-resume-button inline-flex items-center px-8 py-3 border border-transparent text-lg font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
           title="Save all changes made to this resume"
         >
           <Save className="h-6 w-6 mr-3" />

@@ -222,17 +222,48 @@ class User {
 
     const verificationToken = uuidv4();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    
+
     const query = `
-      UPDATE users 
-      SET email_verification_token = $1, 
+      UPDATE users
+      SET email_verification_token = $1,
           email_verification_expires = $2,
           updated_at = CURRENT_TIMESTAMP
       WHERE email = $3
       RETURNING id, email, first_name, last_name, email_verification_token
     `;
-    
+
     const result = await pool.query(query, [verificationToken, verificationExpires, email]);
+    return result.rows[0];
+  }
+
+  static async updateTutorialStatus(userId, updates) {
+    const allowedFields = ['tutorial_completed', 'tutorial_completed_at', 'tutorial_skipped'];
+    const setClause = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [field, value] of Object.entries(updates)) {
+      if (allowedFields.includes(field) && value !== undefined) {
+        setClause.push(`${field} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (setClause.length === 0) {
+      throw new Error('No valid fields to update');
+    }
+
+    values.push(userId);
+
+    const query = `
+      UPDATE users
+      SET ${setClause.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramIndex}
+      RETURNING id, tutorial_completed, tutorial_completed_at, tutorial_skipped
+    `;
+
+    const result = await pool.query(query, values);
     return result.rows[0];
   }
 }

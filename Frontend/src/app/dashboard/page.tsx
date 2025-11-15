@@ -3,32 +3,39 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  FileText, 
-  Download, 
+import {
+  FileText,
+  Download,
   Trash2,
   Sparkles,
   Edit,
-  ChevronDown,
-  User,
-  LogOut,
   FileDown,
   Zap,
   RotateCcw
 } from 'lucide-react';
 import { resumeApi, Resume, authApi, tokenApi, accountApi } from '@/lib/api';
-import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
+import { isAuthenticatedWithValidation } from '@/lib/auth';
 import { formatDateTime } from '@/lib/timezone';
 import Layout from '@/components/Layout';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import ThemeToggle from '@/components/ThemeToggle';
+import WelcomeDialog from '@/components/WelcomeDialog';
+import TutorialOverlay from '@/components/TutorialOverlay';
+import { useTutorial } from '@/context/TutorialContext';
+import { dashboardTutorialSteps } from '@/config/tutorialSteps';
 
 export default function DashboardPage() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string; isAdmin?: boolean} | null>(null);
+  // Initialize user from localStorage to persist across rate limit errors
+  const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string; isAdmin?: boolean} | null>(() => {
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('dashboardUser');
+      return storedUser ? JSON.parse(storedUser) : null;
+    }
+    return null;
+  });
   const [userTimezone, setUserTimezone] = useState<string>('UTC');
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -40,26 +47,18 @@ export default function DashboardPage() {
     resumeId: null,
     resumeName: ''
   });
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tokenUsage, setTokenUsage] = useState<{totalTokens: number} | null>(null);
   const [tokenResetLoading, setTokenResetLoading] = useState(false);
   const [generatingPDFs, setGeneratingPDFs] = useState<Set<number>>(new Set());
   const router = useRouter();
 
-  // Close user menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuOpen) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('[data-user-menu]')) {
-          setUserMenuOpen(false);
-        }
-      }
-    };
+  // Tutorial hook
+  const { setTutorialSteps } = useTutorial();
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [userMenuOpen]);
+  // Initialize tutorial steps
+  useEffect(() => {
+    setTutorialSteps(dashboardTutorialSteps);
+  }, [setTutorialSteps]);
 
   useEffect(() => {
     const validateAndLoad = async () => {
@@ -67,6 +66,10 @@ export default function DashboardPage() {
         setIsValidating(true);
         const isValid = await isAuthenticatedWithValidation();
         if (!isValid) {
+          // Clear cached user data when authentication fails
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('dashboardUser');
+          }
           router.push('/login');
           return;
         }
@@ -77,6 +80,10 @@ export default function DashboardPage() {
       } catch (error) {
         console.error('Token validation error:', error);
         setError('Authentication failed. Please login again.');
+        // Clear cached user data on authentication failure
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('dashboardUser');
+        }
         setTimeout(() => router.push('/login'), 2000);
       } finally {
         setIsValidating(false);
@@ -139,15 +146,23 @@ export default function DashboardPage() {
   const fetchUserData = async () => {
     try {
       const response = await authApi.getMe();
-      setUser(response.user);
+      const userData = response.user;
+      setUser(userData);
+
+      // Persist user data to localStorage to maintain access even during rate limit errors
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('dashboardUser', JSON.stringify(userData));
+      }
 
       // Fetch user profile to get timezone
       const profileResponse = await accountApi.getProfile();
       if (profileResponse.data && profileResponse.data.timezone) {
         setUserTimezone(profileResponse.data.timezone);
       }
-    } catch {
-      console.error('Failed to fetch user data');
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+      // Don't clear user state on error - keep the localStorage cached version
+      // This ensures user menu remains accessible during rate limits
     }
   };
 
@@ -187,11 +202,6 @@ export default function DashboardPage() {
     } finally {
       setTokenResetLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    removeToken();
-    router.push('/');
   };
 
   const handleDownload = async (resume: Resume) => {
@@ -302,83 +312,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout showNav={false}>
+    <Layout>
       <div className="min-h-screen">
-        {/* Custom Header */}
-        <div className="relative z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="pt-8 pb-6">
-              <div className="flex justify-between items-center">
-                <Link href="/" className="flex items-center group">
-                  <FileText className="h-8 w-8 text-indigo-400 dark:text-indigo-300 mr-2 group-hover:text-indigo-300 dark:group-hover:text-indigo-200 transition-colors" />
-                  <span className="text-xl font-bold text-white group-hover:text-indigo-100 transition-colors">Resume Creator</span>
-                </Link>
-
-                <div className="flex items-center space-x-3">
-                  <ThemeToggle />
-                  {user && (
-                  <div className="relative" data-user-menu>
-                    <button
-                      onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center space-x-3 text-white hover:text-indigo-200 transition-colors bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <User className="h-5 w-5" />
-                        <span className="font-medium">{user.firstName} {user.lastName}</span>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {userMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-50">
-                        <div className="py-1">
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              router.push('/account');
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <User className="h-4 w-4 mr-2" />
-                            Account
-                          </button>
-                          {user.isAdmin && (
-                            <>
-                              <hr className="border-gray-100 dark:border-gray-700" />
-                              <Link
-                                href="/admin"
-                                onClick={() => setUserMenuOpen(false)}
-                                className="flex items-center w-full px-4 py-2 text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30"
-                              >
-                                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Admin Dashboard
-                              </Link>
-                            </>
-                          )}
-                          <hr className="border-gray-100 dark:border-gray-700" />
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              handleLogout();
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
-                          >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  )}
-                </div>
-              </div>
-            </nav>
-          </div>
-        </div>
-
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Welcome Section */}
           <div className="mb-8">
@@ -392,7 +327,7 @@ export default function DashboardPage() {
 
         {/* Token Usage Section */}
         {tokenUsage && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+          <div className="token-usage-section bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
@@ -444,7 +379,7 @@ export default function DashboardPage() {
         {/* Actions Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* New Resume */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="new-resume-card bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">New Resume</h2>
             </div>
@@ -464,7 +399,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Create Custom Resume */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="custom-resume-card bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Create Custom Resume</h2>
             </div>
@@ -492,7 +427,7 @@ export default function DashboardPage() {
         )}
 
         {/* Resumes List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="resumes-list-section bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Your Resumes</h2>
           </div>
@@ -594,6 +529,10 @@ export default function DashboardPage() {
         cancelText="Cancel"
         isLoading={isDeleting === deleteDialog.resumeId}
       />
+
+      {/* Tutorial Components */}
+      <WelcomeDialog />
+      <TutorialOverlay />
     </Layout>
   );
 }

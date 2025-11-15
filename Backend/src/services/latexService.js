@@ -7,17 +7,73 @@ const logger = require('../utils/logger');
 class LatexService {
   constructor() {
     this.tempDir = path.join(os.tmpdir(), 'latex-conversions');
-    // Common pdflatex paths on different systems
-    this.pdflatexPaths = [
-      'pdflatex', // If in PATH
-      '/Library/TeX/texbin/pdflatex', // MacTeX on macOS
-      '/usr/local/texlive/2023/bin/x86_64-darwin/pdflatex',
-      '/usr/local/texlive/2024/bin/x86_64-darwin/pdflatex',
-      '/usr/bin/pdflatex', // Linux
-      '/usr/local/bin/pdflatex'
-    ];
+    this.platform = os.platform(); // 'darwin', 'win32', 'linux', etc.
     this.pdflatexPath = null;
+
+    // Get custom LaTeX path from environment if set
+    const customPath = process.env.LATEX_PDFLATEX_PATH;
+    if (customPath) {
+      logger.info('Using custom pdflatex path from environment', { path: customPath });
+      this.pdflatexPaths = [customPath];
+    } else {
+      // Build OS-specific paths
+      this.pdflatexPaths = this.getDefaultPdfLatexPaths();
+    }
+
     this.ensureTempDir();
+  }
+
+  /**
+   * Get default pdflatex paths based on operating system
+   */
+  getDefaultPdfLatexPaths() {
+    const paths = ['pdflatex']; // Always check PATH first
+
+    if (this.platform === 'darwin') {
+      // macOS paths
+      paths.push(
+        '/Library/TeX/texbin/pdflatex', // MacTeX default
+        '/usr/local/texlive/2023/bin/universal-darwin/pdflatex',
+        '/usr/local/texlive/2023/bin/x86_64-darwin/pdflatex',
+        '/usr/local/texlive/2024/bin/universal-darwin/pdflatex',
+        '/usr/local/texlive/2024/bin/x86_64-darwin/pdflatex',
+        '/usr/local/texlive/2025/bin/universal-darwin/pdflatex',
+        '/usr/local/texlive/2025/bin/x86_64-darwin/pdflatex',
+        '/opt/homebrew/bin/pdflatex' // Homebrew on Apple Silicon
+      );
+    } else if (this.platform === 'win32') {
+      // Windows paths
+      paths.push(
+        'C:\\texlive\\2023\\bin\\windows\\pdflatex.exe',
+        'C:\\texlive\\2024\\bin\\windows\\pdflatex.exe',
+        'C:\\texlive\\2025\\bin\\windows\\pdflatex.exe',
+        'C:\\texlive\\2023\\bin\\win32\\pdflatex.exe',
+        'C:\\texlive\\2024\\bin\\win32\\pdflatex.exe',
+        'C:\\texlive\\2025\\bin\\win32\\pdflatex.exe',
+        'C:\\Program Files\\MiKTeX\\miktex\\bin\\x64\\pdflatex.exe',
+        'C:\\Program Files (x86)\\MiKTeX\\miktex\\bin\\pdflatex.exe',
+        process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Programs', 'MiKTeX', 'miktex', 'bin', 'x64', 'pdflatex.exe') : null
+      ).filter(Boolean); // Remove null entries
+    } else {
+      // Linux and other Unix-like systems
+      paths.push(
+        '/usr/bin/pdflatex',
+        '/usr/local/bin/pdflatex',
+        '/usr/local/texlive/2023/bin/x86_64-linux/pdflatex',
+        '/usr/local/texlive/2024/bin/x86_64-linux/pdflatex',
+        '/usr/local/texlive/2025/bin/x86_64-linux/pdflatex',
+        '/opt/texlive/2023/bin/x86_64-linux/pdflatex',
+        '/opt/texlive/2024/bin/x86_64-linux/pdflatex',
+        '/opt/texlive/2025/bin/x86_64-linux/pdflatex'
+      );
+    }
+
+    logger.info('Initialized LaTeX service', {
+      platform: this.platform,
+      searchPaths: paths.length
+    });
+
+    return paths;
   }
 
   async ensureTempDir() {
@@ -43,9 +99,10 @@ class LatexService {
       try {
         // Check if the executable exists
         if (pdflatexPath === 'pdflatex') {
-          // Check if it's in PATH
+          // Check if it's in PATH (OS-specific command)
+          const checkCommand = this.platform === 'win32' ? 'where pdflatex' : 'which pdflatex';
           await new Promise((resolve, reject) => {
-            exec('which pdflatex', (error, stdout) => {
+            exec(checkCommand, (error, stdout) => {
               if (error || !stdout.trim()) {
                 reject(new Error('Not in PATH'));
               } else {
@@ -54,13 +111,18 @@ class LatexService {
             });
           });
           this.pdflatexPath = 'pdflatex';
-          logger.info('Found pdflatex in PATH');
+          logger.info('Found pdflatex in PATH', { platform: this.platform });
           return this.pdflatexPath;
         } else {
           // Check if file exists at specific path
-          await fs.access(pdflatexPath, fs.constants.X_OK);
+          // On Windows, fs.constants.X_OK doesn't work the same way, so just check if file exists
+          if (this.platform === 'win32') {
+            await fs.access(pdflatexPath, fs.constants.F_OK);
+          } else {
+            await fs.access(pdflatexPath, fs.constants.X_OK);
+          }
           this.pdflatexPath = pdflatexPath;
-          logger.info('Found pdflatex', { path: pdflatexPath });
+          logger.info('Found pdflatex', { path: pdflatexPath, platform: this.platform });
           return this.pdflatexPath;
         }
       } catch (error) {
@@ -68,6 +130,11 @@ class LatexService {
         continue;
       }
     }
+
+    logger.error('pdflatex not found', {
+      platform: this.platform,
+      searchedPaths: this.pdflatexPaths.length
+    });
 
     return null;
   }
@@ -96,7 +163,8 @@ class LatexService {
       // Find pdflatex executable
       const pdflatexPath = await this.findPdfLatex();
       if (!pdflatexPath) {
-        throw new Error('pdflatex is not installed on this system. Please install MacTeX or TeX Live.');
+        const installInstructions = this.getInstallInstructions();
+        throw new Error(`pdflatex is not installed on this system. ${installInstructions}`);
       }
 
       // Create working directory
@@ -213,6 +281,19 @@ class LatexService {
 
     // Return a generic message if no specific error found
     return 'LaTeX compilation encountered errors. Please check your LaTeX syntax.';
+  }
+
+  /**
+   * Get OS-specific installation instructions
+   */
+  getInstallInstructions() {
+    if (this.platform === 'darwin') {
+      return 'Please install MacTeX: brew install --cask mactex or visit https://tug.org/mactex/';
+    } else if (this.platform === 'win32') {
+      return 'Please install MiKTeX from https://miktex.org/download or TeX Live from https://tug.org/texlive/';
+    } else {
+      return 'Please install TeX Live: sudo apt-get install texlive-full (Ubuntu/Debian) or sudo dnf install texlive-scheme-full (Fedora/RHEL)';
+    }
   }
 
   /**

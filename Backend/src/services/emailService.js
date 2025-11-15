@@ -1,5 +1,6 @@
 const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
+const mailjet = require('node-mailjet');
 const logger = require('../utils/logger');
 const { getFrontendUrl } = require('../utils/urlUtils');
 
@@ -38,6 +39,32 @@ class EmailService {
         fromName: process.env.GMAIL_FROM_NAME || 'Resume Builder',
         adminEmail: process.env.ADMIN_EMAIL
       });
+    } else if (this.emailService === 'mailjet') {
+      // Validate Mailjet configuration
+      if (!process.env.MAILJET_API_KEY) {
+        throw new Error('Email configuration incomplete. Please set MAILJET_API_KEY environment variable.');
+      }
+
+      if (!process.env.MAILJET_SECRET_KEY) {
+        throw new Error('Email configuration incomplete. Please set MAILJET_SECRET_KEY environment variable.');
+      }
+
+      if (!process.env.MAILJET_FROM_EMAIL) {
+        throw new Error('Email configuration incomplete. Please set MAILJET_FROM_EMAIL environment variable.');
+      }
+
+      // Initialize Mailjet
+      this.mailjetClient = mailjet.apiConnect(
+        process.env.MAILJET_API_KEY,
+        process.env.MAILJET_SECRET_KEY
+      );
+
+      // Log configuration (without sensitive data)
+      logger.info('Initializing Mailjet email service', {
+        fromEmail: process.env.MAILJET_FROM_EMAIL,
+        fromName: process.env.MAILJET_FROM_NAME || 'Resume Builder',
+        adminEmail: process.env.ADMIN_EMAIL
+      });
     } else {
       // Validate SendGrid configuration
       if (!process.env.SENDGRID_API_KEY) {
@@ -68,6 +95,15 @@ class EmailService {
         await this.transporter.verify();
         logger.info('Gmail SMTP connection successful');
         return { success: true, connected: true };
+      } else if (this.emailService === 'mailjet') {
+        logger.info('Testing Mailjet API connection...');
+        // Test Mailjet connection by fetching account details
+        const result = await this.mailjetClient.get('user').request();
+        if (result.body && result.body.Data) {
+          logger.info('Mailjet API connection successful');
+          return { success: true, connected: true };
+        }
+        throw new Error('Unable to verify Mailjet connection');
       } else {
         logger.info('Testing SendGrid API connection...');
         // SendGrid doesn't have a specific test connection method like nodemailer
@@ -84,12 +120,19 @@ class EmailService {
         error: error.message
       });
 
+      let suggestion;
+      if (this.emailService === 'gmail') {
+        suggestion = 'Check GMAIL_USER and GMAIL_APP_PASSWORD configuration.';
+      } else if (this.emailService === 'mailjet') {
+        suggestion = 'Check MAILJET_API_KEY and MAILJET_SECRET_KEY configuration.';
+      } else {
+        suggestion = 'Check SENDGRID_API_KEY configuration.';
+      }
+
       return {
         success: false,
         error: error.message,
-        suggestion: this.emailService === 'gmail'
-          ? 'Check GMAIL_USER and GMAIL_APP_PASSWORD configuration.'
-          : 'Check SENDGRID_API_KEY configuration.'
+        suggestion
       };
     }
   }
@@ -99,6 +142,34 @@ class EmailService {
       // Send via Gmail SMTP using nodemailer
       const info = await this.transporter.sendMail(mailOptions);
       return { success: true, messageId: info.messageId };
+    } else if (this.emailService === 'mailjet') {
+      // Send via Mailjet
+      // Convert mailOptions to Mailjet format
+      const request = this.mailjetClient
+        .post('send', { version: 'v3.1' })
+        .request({
+          Messages: [
+            {
+              From: {
+                Email: mailOptions.from.email || mailOptions.from,
+                Name: mailOptions.from.name || process.env.MAILJET_FROM_NAME || 'Resume Builder'
+              },
+              To: [
+                {
+                  Email: mailOptions.to,
+                  Name: mailOptions.to.split('@')[0] // Extract name from email
+                }
+              ],
+              Subject: mailOptions.subject,
+              HTMLPart: mailOptions.html,
+              TextPart: mailOptions.text || mailOptions.html.replace(/<[^>]*>/g, '') // Strip HTML for text version
+            }
+          ]
+        });
+
+      const result = await request;
+      const messageId = result.body.Messages[0].To[0].MessageID;
+      return { success: true, messageId };
     } else {
       // Send via SendGrid
       const info = await sgMail.send(mailOptions);
@@ -111,6 +182,11 @@ class EmailService {
       return {
         email: process.env.GMAIL_USER,
         name: process.env.GMAIL_FROM_NAME || 'Resume Builder'
+      };
+    } else if (this.emailService === 'mailjet') {
+      return {
+        email: process.env.MAILJET_FROM_EMAIL,
+        name: process.env.MAILJET_FROM_NAME || 'Resume Builder'
       };
     } else {
       return {
@@ -451,7 +527,7 @@ class EmailService {
             </tr>
             <tr style="border-bottom: 1px solid #ddd;">
               <td style="padding: 10px 0; font-weight: bold; color: #555;">Email Service:</td>
-              <td style="padding: 10px 0; color: #333;">${this.emailService === 'gmail' ? 'Gmail SMTP' : 'SendGrid'}</td>
+              <td style="padding: 10px 0; color: #333;">${this.emailService === 'gmail' ? 'Gmail SMTP' : this.emailService === 'mailjet' ? 'Mailjet' : 'SendGrid'}</td>
             </tr>
             <tr style="border-bottom: 1px solid #ddd;">
               <td style="padding: 10px 0; font-weight: bold; color: #555;">Started At:</td>
@@ -670,6 +746,21 @@ class EmailService {
         553: 'Sender address rejected by Gmail.'
       };
       return gmailSuggestions[errorCode] || 'Unknown Gmail error. Check your Gmail settings.';
+    } else if (this.emailService === 'mailjet') {
+      const mailjetSuggestions = {
+        401: 'Invalid Mailjet API credentials. Check MAILJET_API_KEY and MAILJET_SECRET_KEY in .env file.',
+        403: [
+          'Sender email not verified. Verify sender email in Mailjet dashboard.',
+          'API key lacks permissions. Check API key permissions in Mailjet.',
+          'Domain authentication may be required.'
+        ],
+        400: 'Bad request. Check email format and content.',
+        413: 'Email content too large. Reduce email content size.',
+        429: 'Rate limit exceeded. Wait before sending more emails.',
+        500: 'Mailjet server error. Try again later.',
+        503: 'Mailjet service unavailable. Try again later.'
+      };
+      return mailjetSuggestions[errorCode] || 'Unknown error. Check Mailjet dashboard for details.';
     } else {
       const sendgridSuggestions = {
         401: 'Invalid SendGrid API key. Check SENDGRID_API_KEY in .env file.',

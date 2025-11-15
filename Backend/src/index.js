@@ -14,6 +14,7 @@ const tokenRoutes = require('./routes/token');
 const adminRoutes = require('./routes/admin');
 const accountRoutes = require('./routes/account');
 const latexRoutes = require('./routes/latex');
+const tutorialRoutes = require('./routes/tutorial');
 const { initializeBucket } = require('./config/minio');
 const { initializeDatabase, checkDatabaseConnection } = require('./config/dbInit');
 const emailService = require('./services/emailService');
@@ -85,6 +86,7 @@ app.use('/api/tokens', tokenRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/latex', latexRoutes);
+app.use('/api/tutorial', tutorialRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

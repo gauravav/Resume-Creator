@@ -540,3 +540,31 @@ export const accountApi = {
     return response.data;
   },
 };
+
+export interface TutorialStatus {
+  tutorialCompleted: boolean;
+  tutorialCompletedAt: string | null;
+  tutorialSkipped: boolean;
+}
+
+export const tutorialApi = {
+  getStatus: async (): Promise<{success: boolean; data: TutorialStatus}> => {
+    const response = await api.get('/api/tutorial/status');
+    return response.data;
+  },
+
+  markCompleted: async () => {
+    const response = await api.post('/api/tutorial/complete');
+    return response.data;
+  },
+
+  markSkipped: async () => {
+    const response = await api.post('/api/tutorial/skip');
+    return response.data;
+  },
+
+  reset: async () => {
+    const response = await api.post('/api/tutorial/reset');
+    return response.data;
+  },
+};

@@ -11,7 +11,8 @@ import {
   Loader2,
   Sparkles,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 import { isAuthenticatedWithValidation } from '@/lib/auth';
 import { resumeApi, Resume } from '@/lib/api';
@@ -34,8 +35,10 @@ import CustomResumeForm from '@/components/CustomResumeForm';
 import Layout from '@/components/Layout';
 import ChangeHighlighter from '@/components/ChangeHighlighter';
 import SaveCustomResumeDialog from '@/components/SaveCustomResumeDialog';
-import ThemeToggle from '@/components/ThemeToggle';
 import ParsingGames from '@/components/ParsingGames';
+import TutorialOverlay from '@/components/TutorialOverlay';
+import { useTutorial } from '@/context/TutorialContext';
+import { createResumeTutorialSteps } from '@/config/tutorialSteps';
 
 type CreateStep = 'select' | 'customize';
 
@@ -53,6 +56,14 @@ export default function CreateResumePage() {
   const [originalResumeData, setOriginalResumeData] = useState<ResumeData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const router = useRouter();
+
+  // Tutorial hook
+  const { setTutorialSteps, startTutorialDirectly, isTutorialActive } = useTutorial();
+
+  // Initialize tutorial steps
+  useEffect(() => {
+    setTutorialSteps(createResumeTutorialSteps);
+  }, [setTutorialSteps]);
 
   useEffect(() => {
     const validateAndLoad = async () => {
@@ -229,29 +240,9 @@ export default function CreateResumePage() {
   }
 
   return (
-    <Layout showNav={false}>
+    <Layout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        {/* Header - Fixed Position */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-sm border-b dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center">
-                <Link
-                  href="/dashboard"
-                  className="flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mr-4"
-                >
-                  <ArrowLeft className="h-5 w-5 mr-1" />
-                  Back to Dashboard
-                </Link>
-                <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mr-3" />
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Create Custom Resume</h1>
-              </div>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
-        <main className="relative z-10">
+        <main className="relative z-10 pt-4">
           {/* Preview Mode - Show after LLM customization */}
           {customizedResumeData && (
             <div className="flex fixed top-16 left-0 right-0 bottom-0">
@@ -329,7 +320,7 @@ export default function CreateResumePage() {
                         e.preventDefault();
                         handleShowSaveDialog();
                       }}
-                      className="flex-1 inline-flex items-center justify-center px-4 py-3 border-2 border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-500 dark:to-blue-500 hover:from-indigo-700 hover:to-blue-700 dark:hover:from-indigo-600 dark:hover:to-blue-600 shadow-lg hover:shadow-xl transition-all"
+                      className="save-custom-button flex-1 inline-flex items-center justify-center px-4 py-3 border-2 border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-500 dark:to-blue-500 hover:from-indigo-700 hover:to-blue-700 dark:hover:from-indigo-600 dark:hover:to-blue-600 shadow-lg hover:shadow-xl transition-all"
                       title="Save the customized resume to your dashboard"
                     >
                       <Check className="w-5 h-5 mr-2" />
@@ -353,6 +344,7 @@ export default function CreateResumePage() {
 
                   {originalResumeData && customizedResumeData ? (
                     <ChangeHighlighter
+                      className="change-highlighter"
                       originalData={originalResumeData}
                       modifiedData={customizedResumeData}
                     >
@@ -435,7 +427,7 @@ export default function CreateResumePage() {
                     </div>
                   ) : (
                     <div className="p-4">
-                      <div className="grid gap-4">
+                      <div className="resume-selection-list grid gap-4">
                         {resumes.map((resume) => (
                           <div
                             key={resume.id}
@@ -521,7 +513,7 @@ export default function CreateResumePage() {
                         id="description"
                         value={jobDescription}
                         onChange={(e) => handleJobDescriptionChange(e.target.value)}
-                        className="flex-1 block w-full rounded-xl border-0 p-4 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 min-h-0 resize-none"
+                        className="job-description-textarea flex-1 block w-full rounded-xl border-0 p-4 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 min-h-0 resize-none"
                         placeholder="📋 Paste the full job description here...
 
 Include:
@@ -559,7 +551,7 @@ Include:
                     <button
                       onClick={handleCreateCustomResume}
                       disabled={isCreating || !jobDescription.trim()}
-                      className="flex-1 inline-flex items-center justify-center px-4 py-3 border-2 border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-500 dark:to-blue-500 hover:from-indigo-700 hover:to-blue-700 dark:hover:from-indigo-600 dark:hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
+                      className="customize-button flex-1 inline-flex items-center justify-center px-4 py-3 border-2 border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-500 dark:to-blue-500 hover:from-indigo-700 hover:to-blue-700 dark:hover:from-indigo-600 dark:hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
                       title="Generate customized resume using AI based on job description"
                     >
                       {isCreating ? (
@@ -618,6 +610,21 @@ Include:
 
       {/* Mini Games Modal */}
       <ParsingGames isOpen={isCreating} />
+
+      {/* Tutorial Help Button */}
+      {!isTutorialActive && (
+        <button
+          onClick={startTutorialDirectly}
+          className="fixed bottom-6 right-6 z-40 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all"
+          title="Start tutorial"
+          aria-label="Start tutorial"
+        >
+          <HelpCircle className="h-6 w-6" />
+        </button>
+      )}
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay />
     </Layout>
   );
 }

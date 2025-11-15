@@ -246,6 +246,53 @@ const initializeDatabase = async () => {
       logger.info('✅ Added structure_metadata column to parsed_resumes table with GIN index');
     }
 
+    // Add tutorial tracking columns to users table if they don't exist
+    const checkTutorialColumns = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name IN ('tutorial_completed', 'tutorial_completed_at', 'tutorial_skipped')
+    `);
+
+    const existingTutorialColumns = checkTutorialColumns.rows.map(row => row.column_name);
+
+    if (!existingTutorialColumns.includes('tutorial_completed')) {
+      await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN tutorial_completed BOOLEAN DEFAULT FALSE
+      `);
+      logger.info('✅ Added tutorial_completed column to users table');
+    }
+
+    if (!existingTutorialColumns.includes('tutorial_completed_at')) {
+      await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN tutorial_completed_at TIMESTAMP
+      `);
+      logger.info('✅ Added tutorial_completed_at column to users table');
+    }
+
+    if (!existingTutorialColumns.includes('tutorial_skipped')) {
+      await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN tutorial_skipped BOOLEAN DEFAULT FALSE
+      `);
+      logger.info('✅ Added tutorial_skipped column to users table');
+    }
+
+    // Create index for tutorial_completed for better query performance
+    const checkTutorialIndex = await pool.query(`
+      SELECT indexname
+      FROM pg_indexes
+      WHERE tablename = 'users' AND indexname = 'idx_users_tutorial_completed'
+    `);
+
+    if (checkTutorialIndex.rows.length === 0) {
+      await pool.query(`
+        CREATE INDEX idx_users_tutorial_completed ON users(tutorial_completed)
+      `);
+      logger.info('✅ Created index on tutorial_completed column');
+    }
+
     logger.info('🎉 Database initialization completed successfully');
     
   } catch (error) {

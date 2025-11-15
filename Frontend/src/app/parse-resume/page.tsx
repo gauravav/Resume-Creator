@@ -1,23 +1,25 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  ArrowLeft,
-  FileText,
   Loader2,
   AlertCircle,
   CheckCircle,
   Code,
   Upload,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { resumeApi } from '@/lib/api';
 import { ResumeData } from '@/types/resume';
 import Layout from '@/components/Layout';
 import EditableResumeForm from '@/components/EditableResumeForm';
 import ParsingGames from '@/components/ParsingGames';
+import TutorialOverlay from '@/components/TutorialOverlay';
+import { useTutorial } from '@/context/TutorialContext';
+import { parseResumeTutorialSteps } from '@/config/tutorialSteps';
+import { HelpCircle } from 'lucide-react';
 
 export default function ParseOnlyResumePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -30,6 +32,14 @@ export default function ParseOnlyResumePage() {
   const [error, setError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const router = useRouter();
+
+  // Tutorial hook
+  const { setTutorialSteps, startTutorialDirectly, isTutorialActive } = useTutorial();
+
+  // Initialize tutorial steps
+  useEffect(() => {
+    setTutorialSteps(parseResumeTutorialSteps);
+  }, [setTutorialSteps]);
 
   const validateFile = useCallback((file: File): string | null => {
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
@@ -137,27 +147,8 @@ export default function ParseOnlyResumePage() {
 
 
   return (
-    <Layout showNav={false}>
+    <Layout>
       <div className="min-h-screen">
-        {/* Header */}
-        <header className="relative z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm shadow-sm border-b dark:border-gray-700">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center h-16">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mr-4"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Dashboard
-              </Link>
-              <div className="flex items-center">
-                <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mr-3" />
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">New Resume</h1>
-              </div>
-            </div>
-          </div>
-        </header>
-
         <main className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Error Message */}
           {error && (
@@ -181,7 +172,7 @@ export default function ParseOnlyResumePage() {
               {/* File Upload Section */}
               {!file && (
                 <div
-                  className={`relative border-2 border-dashed rounded-xl p-8 transition-colors ${
+                  className={`file-upload-area relative border-2 border-dashed rounded-xl p-8 transition-colors ${
                     isDragOver
                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-400'
                       : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
@@ -234,7 +225,7 @@ export default function ParseOnlyResumePage() {
                     </button>
                   </div>
 
-                  <div>
+                  <div className="resume-name-input">
                     <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Resume Name <span className="text-red-500 dark:text-red-400">*</span>
                     </label>
@@ -264,7 +255,7 @@ export default function ParseOnlyResumePage() {
                   <button
                     onClick={handleParse}
                     disabled={isParsing || !resumeName.trim() || !showParseOption}
-                    className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="parse-button w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Extract structured data from uploaded resume file using AI"
                   >
                     {isParsing ? (
@@ -310,7 +301,7 @@ export default function ParseOnlyResumePage() {
                   </div>
 
                   {/* Editable Resume Form */}
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <div className="editable-resume-form border-t border-gray-200 dark:border-gray-700 pt-6">
                     <EditableResumeForm
                       initialData={parsedData}
                       onSave={handleSave}
@@ -337,6 +328,21 @@ export default function ParseOnlyResumePage() {
 
       {/* Mini Games Modal */}
       <ParsingGames isOpen={isParsing} />
+
+      {/* Tutorial Help Button */}
+      {!isTutorialActive && (
+        <button
+          onClick={startTutorialDirectly}
+          className="fixed bottom-6 right-6 z-40 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all"
+          title="Start tutorial"
+          aria-label="Start tutorial"
+        >
+          <HelpCircle className="h-6 w-6" />
+        </button>
+      )}
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay />
     </Layout>
   );
 }

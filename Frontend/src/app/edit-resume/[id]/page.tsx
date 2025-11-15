@@ -4,17 +4,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft,
-  FileText,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 import { isAuthenticatedWithValidation } from '@/lib/auth';
 import { resumeApi } from '@/lib/api';
 import { ResumeData } from '@/types/resume';
 import EditableResumeForm from '@/components/EditableResumeForm';
 import Layout from '@/components/Layout';
-import ThemeToggle from '@/components/ThemeToggle';
+import TutorialOverlay from '@/components/TutorialOverlay';
+import { useTutorial } from '@/context/TutorialContext';
+import { editResumeTutorialSteps } from '@/config/tutorialSteps';
 
 export default function EditResumePage() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
@@ -25,6 +26,14 @@ export default function EditResumePage() {
   const router = useRouter();
   const params = useParams();
   const resumeId = params.id as string;
+
+  // Tutorial hook
+  const { setTutorialSteps, startTutorialDirectly, isTutorialActive } = useTutorial();
+
+  // Initialize tutorial steps
+  useEffect(() => {
+    setTutorialSteps(editResumeTutorialSteps);
+  }, [setTutorialSteps]);
 
   const fetchResumeData = useCallback(async () => {
     try {
@@ -123,48 +132,23 @@ export default function EditResumePage() {
   }
 
   return (
-    <Layout showNav={false}>
+    <Layout>
       <div className="min-h-screen">
-        {/* Header */}
-        <header className="relative z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mr-4"
-                >
-                  <ArrowLeft className="h-5 w-5 mr-2" />
-                  Back to Dashboard
-                </Link>
-                <div className="flex items-center">
-                  <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400 mr-3" />
-                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Resume</h1>
-                </div>
-              </div>
-
-              {/* Resume Name Editor and Theme Toggle */}
-              <div className="flex items-center space-x-4">
-                <ThemeToggle />
-                <div>
-                  <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Resume Name
-                  </label>
-                  <input
-                    type="text"
-                    id="resumeName"
-                    value={resumeName}
-                    onChange={handleNameChange}
-                    className="mt-1 block w-64 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm placeholder-gray-400 dark:placeholder-gray-500 px-3 py-2"
-                    placeholder="Enter resume name"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
         <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Resume Name Editor */}
+          <div className="mb-6">
+            <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Resume Name
+            </label>
+            <input
+              type="text"
+              id="resumeName"
+              value={resumeName}
+              onChange={handleNameChange}
+              className="block w-full max-w-md rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm placeholder-gray-400 dark:placeholder-gray-500 px-3 py-2"
+              placeholder="Enter resume name"
+            />
+          </div>
           {/* Error Message */}
           {error && (
             <div className="mb-6 bg-red-50/90 dark:bg-red-900/30 backdrop-blur-sm border border-red-200 dark:border-red-700 rounded-md p-4">
@@ -191,6 +175,21 @@ export default function EditResumePage() {
           )}
         </main>
       </div>
+
+      {/* Tutorial Help Button */}
+      {!isTutorialActive && (
+        <button
+          onClick={startTutorialDirectly}
+          className="fixed bottom-6 right-6 z-40 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all"
+          title="Start tutorial"
+          aria-label="Start tutorial"
+        >
+          <HelpCircle className="h-6 w-6" />
+        </button>
+      )}
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay />
     </Layout>
   );
 }
