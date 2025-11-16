@@ -27,7 +27,9 @@ const playSound = (frequency: number, duration: number, type: OscillatorType = '
   if (isMuted) return;
 
   try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioContext = new AudioContextClass();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
@@ -412,7 +414,7 @@ const WhackABugGame = ({ isMuted }: { isMuted: boolean }) => {
 
       {!isPlaying && timeLeft === 0 && (
         <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
-          <p className="text-blue-800 dark:text-blue-300 font-semibold">Time's Up!</p>
+          <p className="text-blue-800 dark:text-blue-300 font-semibold">Time&apos;s Up!</p>
           <p className="text-blue-600 dark:text-blue-400 text-sm">Final Score: {score}</p>
         </div>
       )}

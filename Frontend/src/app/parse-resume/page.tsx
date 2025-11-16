@@ -27,7 +27,7 @@ export default function ParseOnlyResumePage() {
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [parsedData, setParsedData] = useState<ResumeData | null>(null);
-  const [structureMetadata, setStructureMetadata] = useState<any>(null);
+  const [structureMetadata, setStructureMetadata] = useState<Record<string, unknown> | null>(null);
   const [showParseOption, setShowParseOption] = useState(false);
   const [error, setError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
@@ -131,7 +131,7 @@ export default function ParseOnlyResumePage() {
     setError('');
 
     try {
-      await resumeApi.saveParsed(updatedData, resumeName.trim(), structureMetadata);
+      await resumeApi.saveParsed(updatedData, resumeName.trim(), structureMetadata || undefined);
       router.push('/dashboard');
     } catch (error) {
       console.error('Save error:', error);

@@ -113,11 +113,11 @@ export default function Navbar() {
         <div className="relative" data-user-menu>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center space-x-3 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-300 dark:border-gray-600"
+            className="flex items-center space-x-2 sm:space-x-3 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white transition-colors bg-white dark:bg-gray-800 rounded-lg px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600"
           >
             <div className="flex items-center space-x-2">
               <User className="h-5 w-5" />
-              <span className="font-medium">
+              <span className="hidden sm:inline font-medium">
                 {user.firstName && user.lastName
                   ? `${user.firstName} ${user.lastName}`
                   : user.email || 'User'}
@@ -183,23 +183,25 @@ export default function Navbar() {
     }
 
     return (
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 sm:space-x-3">
         {pathname !== '/login' && (
           <Link
             href="/login"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="inline-flex items-center px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Sign In"
           >
-            <LogIn className="h-4 w-4 mr-2" />
-            Sign In
+            <LogIn className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Sign In</span>
           </Link>
         )}
         {pathname !== '/register' && (
           <Link
             href="/register"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+            className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+            title="Sign Up"
           >
-            <UserPlus className="h-4 w-4 mr-2" />
-            Sign Up
+            <UserPlus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Sign Up</span>
           </Link>
         )}
       </div>
@@ -212,14 +214,15 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           {/* Left side - App name */}
           <Link href="/" className="flex items-center group">
-            <FileText className="h-7 w-7 text-indigo-600 dark:text-indigo-400 mr-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors" />
-            <span className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-              Resume Creator
+            <FileText className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-600 dark:text-indigo-400 mr-2 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors" />
+            <span className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <span className="hidden xs:inline">Resume Creator</span>
+              <span className="xs:hidden">Resume</span>
             </span>
           </Link>
 
           {/* Right side - Theme toggle and user menu/auth buttons */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <ThemeToggle />
             {getAuthButtons()}
           </div>

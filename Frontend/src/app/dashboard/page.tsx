@@ -107,24 +107,34 @@ export default function DashboardPage() {
       (data) => {
         console.log('Received PDF status update:', data);
 
-        if (data.type === 'pdf_status_update') {
+        // Type guard for PDF update data
+        const updateData = data as {
+          type?: string;
+          resumeId?: number;
+          status?: 'pending' | 'generating' | 'ready' | 'failed';
+          pdfFileName?: string;
+          pdfGeneratedAt?: string;
+          message?: string;
+        };
+
+        if (updateData.type === 'pdf_status_update' && updateData.resumeId) {
           // Update the resume in state
           setResumes(prev => prev.map(r =>
-            r.id === data.resumeId
+            r.id === updateData.resumeId
               ? {
                   ...r,
-                  pdfStatus: data.status,
-                  pdfFileName: data.pdfFileName || r.pdfFileName,
-                  pdfGeneratedAt: data.pdfGeneratedAt || r.pdfGeneratedAt
+                  ...(updateData.status && { pdfStatus: updateData.status }),
+                  ...(updateData.pdfFileName && { pdfFileName: updateData.pdfFileName }),
+                  ...(updateData.pdfGeneratedAt && { pdfGeneratedAt: updateData.pdfGeneratedAt })
                 }
               : r
           ));
 
           // Show success notification when PDF is ready
-          if (data.status === 'ready') {
-            console.log(`PDF ready for resume ${data.resumeId}`);
-          } else if (data.status === 'failed') {
-            console.error(`PDF generation failed for resume ${data.resumeId}:`, data.message);
+          if (updateData.status === 'ready') {
+            console.log(`PDF ready for resume ${updateData.resumeId}`);
+          } else if (updateData.status === 'failed') {
+            console.error(`PDF generation failed for resume ${updateData.resumeId}:`, updateData.message);
           }
         }
       },
@@ -243,10 +253,11 @@ export default function DashboardPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('PDF download error:', error);
-      if (error?.response?.data?.pdfStatus) {
-        const status = error.response.data.pdfStatus;
+      const err = error as { response?: { data?: { pdfStatus?: string } } };
+      if (err?.response?.data?.pdfStatus) {
+        const status = err.response.data.pdfStatus;
         if (status === 'generating') {
           setError('PDF is still being generated. Please try again in a moment.');
         } else if (status === 'failed') {

@@ -20,17 +20,17 @@ export default function Home() {
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
-        <main className="text-center py-16 relative overflow-hidden">
+        <main className="text-center py-8 sm:py-12 md:py-16 relative overflow-hidden">
           <div className="max-w-4xl mx-auto relative z-10">
-            <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-8">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 sm:mb-8 px-4">
               Create & Edit
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-cyan-300">
                 {' '}AI-Powered{' '}
               </span>
               Resumes
             </h1>
-            
-            <p className="text-xl text-gray-200 dark:text-gray-300 mb-12 max-w-2xl mx-auto">
+
+            <p className="text-base sm:text-lg md:text-xl text-gray-200 dark:text-gray-300 mb-8 sm:mb-12 max-w-2xl mx-auto px-4">
               Upload your resume and use our AI to create, edit, and customize every section.
               Rewrite responsibilities, enhance summaries, and tailor content for any opportunity.
             </p>
@@ -55,9 +55,9 @@ export default function Home() {
         </main>
 
         {/* How It Works Section */}
-        <section className="py-16 bg-black/20 backdrop-blur-sm">
+        <section className="py-12 sm:py-16 bg-black/20 backdrop-blur-sm">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-bold text-center text-white mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-center text-white mb-8 sm:mb-12">
               How It Works - Simple 3-Step Process
             </h2>
             
@@ -90,14 +90,14 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section className="py-16">
+        <section className="py-12 sm:py-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-bold text-center text-white mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-center text-white mb-8 sm:mb-12">
               Powerful AI-driven resume creation and editing
             </h2>
             
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+            <div className="grid md:grid-cols-3 gap-6 sm:gap-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 text-center">
                 <div className="bg-indigo-100 dark:bg-indigo-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Upload className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
                 </div>
@@ -107,7 +107,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 text-center">
                 <div className="bg-purple-100 dark:bg-purple-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FileText className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                 </div>
@@ -117,7 +117,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sm:p-8 text-center">
                 <div className="bg-green-100 dark:bg-green-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Shield className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>

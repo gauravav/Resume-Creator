@@ -15,20 +15,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { ResumeData } from '@/types/resume';
-
-interface Resume {
-  id: number;
-  fileName: string;
-  resumeFileName: string;
-  jsonFileName: string;
-  pdfFileName: string;
-  pdfStatus: string;
-  pdfGeneratedAt: string | null;
-  originalName: string;
-  uploadDate: string;
-  size: number;
-  isBaseResume: boolean;
-}
+import { Resume } from '@/lib/api';
 
 interface SaveCustomResumeDialogProps {
   isOpen: boolean;

@@ -72,7 +72,7 @@ interface EditableResumeFormProps {
 }
 
 // Helper function to migrate old technology structure to new dynamic structure
-const migrateTechnologies = (technologies: any): Array<{ category: string; items: string[] }> => {
+const migrateTechnologies = (technologies: unknown): Array<{ category: string; items: string[] }> => {
   // If already in new format (array), return as is
   if (Array.isArray(technologies)) {
     return technologies;
@@ -100,13 +100,15 @@ const migrateTechnologies = (technologies: any): Array<{ category: string; items
       if (mapping.path) {
         // Handle nested paths like databases.sql
         const parts = mapping.path.split('.');
-        let current: any = technologies;
+        let current: unknown = technologies;
         for (const part of parts) {
-          current = current?.[part];
+          current = (current as Record<string, unknown>)?.[part];
         }
-        items = Array.isArray(current) ? current : [];
+        items = Array.isArray(current) ? (current as string[]) : [];
       } else {
-        items = Array.isArray(technologies[mapping.key]) ? technologies[mapping.key] : [];
+        const techObj = technologies as Record<string, unknown>;
+        const value = techObj[mapping.key];
+        items = Array.isArray(value) ? (value as string[]) : [];
       }
 
       if (items.length > 0) {
@@ -125,7 +127,7 @@ const migrateTechnologies = (technologies: any): Array<{ category: string; items
 };
 
 // Helper function to migrate old summary string to new array format
-const migrateSummary = (summary: any): string[] => {
+const migrateSummary = (summary: unknown): string[] => {
   // If already in new format (array), return as is
   if (Array.isArray(summary)) {
     return summary;
@@ -410,32 +412,36 @@ export default function EditableResumeForm({
   const addTechnologyCategory = () => {
     setData(prev => ({
       ...prev,
-      technologies: [...prev.technologies, { category: '', items: [] }]
+      technologies: Array.isArray(prev.technologies)
+        ? [...prev.technologies, { category: '', items: [] }]
+        : [{ category: '', items: [] }]
     }));
   };
 
   const updateTechnologyCategory = (index: number, category: string) => {
     setData(prev => ({
       ...prev,
-      technologies: prev.technologies.map((tech, i) =>
-        i === index ? { ...tech, category } : tech
-      )
+      technologies: Array.isArray(prev.technologies)
+        ? prev.technologies.map((tech, i) => i === index ? { ...tech, category } : tech)
+        : prev.technologies
     }));
   };
 
   const updateTechnologyItems = (index: number, items: string[]) => {
     setData(prev => ({
       ...prev,
-      technologies: prev.technologies.map((tech, i) =>
-        i === index ? { ...tech, items } : tech
-      )
+      technologies: Array.isArray(prev.technologies)
+        ? prev.technologies.map((tech, i) => i === index ? { ...tech, items } : tech)
+        : prev.technologies
     }));
   };
 
   const removeTechnologyCategory = (index: number) => {
     setData(prev => ({
       ...prev,
-      technologies: prev.technologies.filter((_, i) => i !== index)
+      technologies: Array.isArray(prev.technologies)
+        ? prev.technologies.filter((_, i) => i !== index)
+        : prev.technologies
     }));
   };
 
@@ -1353,7 +1359,7 @@ export default function EditableResumeForm({
         
         {expandedSections.has('technologies') && (
           <div className="p-6 space-y-6">
-            {data.technologies.map((tech, index) => (
+            {Array.isArray(data.technologies) && data.technologies.map((tech, index) => (
               <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 dark:bg-gray-750">
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white">Category {index + 1}</h3>
@@ -1392,7 +1398,7 @@ export default function EditableResumeForm({
               </div>
             ))}
 
-            {data.technologies.length === 0 && (
+            {Array.isArray(data.technologies) && data.technologies.length === 0 && (
               <div className="text-gray-500 dark:text-gray-400 text-sm italic py-4 text-center">
                 No technology categories added yet. Click &quot;Add Category&quot; to add your first category.
               </div>

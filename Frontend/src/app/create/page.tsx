@@ -410,7 +410,6 @@ export default function CreateResumePage() {
 
                   {originalResumeData && customizedResumeData ? (
                     <ChangeHighlighter
-                      className="change-highlighter"
                       originalData={originalResumeData}
                       modifiedData={customizedResumeData}
                     >

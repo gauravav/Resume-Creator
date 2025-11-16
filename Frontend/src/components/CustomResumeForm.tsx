@@ -16,8 +16,7 @@ import {
   Trash2,
   Wand2,
   ChevronDown,
-  Undo2,
-  ChevronRight
+  Undo2
 } from 'lucide-react';
 import { ResumeData } from '@/types/resume';
 import ResponsibilityRewriteDialog from './ResponsibilityRewriteDialog';
@@ -465,6 +464,9 @@ export default function CustomResumeForm({
   };
 
   const updateDatabaseArray = (type: 'sql' | 'nosql', value: string[]) => {
+    // Only proceed if technologies is in object format
+    if (Array.isArray(data.technologies)) return;
+
     const newData = {
       ...data,
       technologies: {
@@ -943,7 +945,7 @@ export default function CustomResumeForm({
               ))}
               {(Array.isArray(data.summary) ? data.summary.length : 1) === 0 && (
                 <div className="text-gray-500 dark:text-gray-400 text-sm italic py-2">
-                  No summary points added yet. Click "Add" to add your first point.
+                  No summary points added yet. Click &ldquo;Add&rdquo; to add your first point.
                 </div>
               )}
             </div>
@@ -1268,12 +1270,24 @@ export default function CustomResumeForm({
                       const isNew = detailedChanges?.experience?.[index]?.newResponsibilities?.[respIndex] ?? false;
                       const isEdited = detailedChanges?.experience?.[index]?.responsibilities?.[respIndex] ?? false;
                       const originalResp = originalData?.experience?.[index]?.responsibilities?.[respIndex];
-                      const [showOriginal, setShowOriginal] = useState(false);
 
                       return (
                         <div key={respIndex} className="space-y-2">
                           <div className="flex items-start space-x-2">
                             <div className="flex-1">
+                              {/* Show original text above edited text for easy comparison */}
+                              {isEdited && originalResp && (
+                                <div className="mb-1 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                                  <div className="flex items-center gap-1 mb-0.5">
+                                    <svg className="w-3 h-3 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Original:</span>
+                                  </div>
+                                  <p className="text-xs text-amber-900 dark:text-amber-100 leading-relaxed">{originalResp}</p>
+                                </div>
+                              )}
+
                               {isNew ? (
                                 <NewField isNew={true}>
                                   <textarea
@@ -1326,24 +1340,6 @@ export default function CustomResumeForm({
                               </button>
                             </div>
                           </div>
-
-                          {/* Show original text for edited responsibilities */}
-                          {isEdited && originalResp && (
-                            <div className="ml-8 mr-8">
-                              <button
-                                onClick={() => setShowOriginal(!showOriginal)}
-                                className="flex items-center text-xs text-gray-600 hover:text-gray-800 mb-1"
-                              >
-                                <ChevronRight className={`w-3 h-3 transition-transform ${showOriginal ? 'rotate-90' : ''}`} />
-                                <span className="ml-1">Original text</span>
-                              </button>
-                              {showOriginal && (
-                                <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-md p-2 text-sm text-gray-700 dark:text-gray-300">
-                                  {originalResp}
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -1505,11 +1501,15 @@ export default function CustomResumeForm({
         {expandedSections.has('technologies') && (
           <div className="p-6 space-y-4">
             {/* Show object format (fixed categories) */}
-            {isTechObject(data.technologies) && (
+            {isTechObject(data.technologies) && (() => {
+              // Type assertion for technologies in object format
+              const techChanges = detailedChanges?.technologies as { isArrayFormat?: false; languages?: TechnologyChanges; backend?: TechnologyChanges; frontend?: TechnologyChanges; cloudAndDevOps?: TechnologyChanges; databases?: { sql?: TechnologyChanges; nosql?: TechnologyChanges }; cicdAndAutomation?: TechnologyChanges; testingAndDebugging?: TechnologyChanges } | undefined;
+
+              return (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Programming Languages</label>
-                  <MagicalField isChanged={detailedChanges?.technologies?.languages?.hasChanges ?? false} intensity="subtle">
+                  <MagicalField isChanged={techChanges?.languages?.hasChanges ?? false} intensity="subtle">
                     <input
                       type="text"
                       value={arrayToString(data.technologies.languages)}
@@ -1518,20 +1518,20 @@ export default function CustomResumeForm({
                       placeholder="JavaScript, Python, Java, C++"
                     />
                   </MagicalField>
-                  {detailedChanges?.technologies?.languages && (detailedChanges.technologies.languages.added.length > 0 || detailedChanges.technologies.languages.removed.length > 0) && (
+                  {techChanges?.languages && (techChanges.languages.added.length > 0 || techChanges.languages.removed.length > 0) && (
                     <div className="mt-1 text-xs space-y-1">
-                      {detailedChanges.technologies.languages.added.length > 0 && (
-                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.languages.added.join(', ')}</div>
+                      {techChanges.languages.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {techChanges.languages.added.join(', ')}</div>
                       )}
-                      {detailedChanges.technologies.languages.removed.length > 0 && (
-                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.languages.removed.join(', ')}</div>
+                      {techChanges.languages.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {techChanges.languages.removed.join(', ')}</div>
                       )}
                     </div>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Backend Technologies</label>
-                  <MagicalField isChanged={detailedChanges?.technologies?.backend?.hasChanges ?? false} intensity="subtle">
+                  <MagicalField isChanged={techChanges?.backend?.hasChanges ?? false} intensity="subtle">
                     <input
                       type="text"
                       value={arrayToString(data.technologies.backend)}
@@ -1540,20 +1540,20 @@ export default function CustomResumeForm({
                       placeholder="Node.js, Express, Django, Spring Boot"
                     />
                   </MagicalField>
-                  {detailedChanges?.technologies?.backend && (detailedChanges.technologies.backend.added.length > 0 || detailedChanges.technologies.backend.removed.length > 0) && (
+                  {techChanges?.backend && (techChanges.backend.added.length > 0 || techChanges.backend.removed.length > 0) && (
                     <div className="mt-1 text-xs space-y-1">
-                      {detailedChanges.technologies.backend.added.length > 0 && (
-                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.backend.added.join(', ')}</div>
+                      {techChanges.backend.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {techChanges.backend.added.join(', ')}</div>
                       )}
-                      {detailedChanges.technologies.backend.removed.length > 0 && (
-                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.backend.removed.join(', ')}</div>
+                      {techChanges.backend.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {techChanges.backend.removed.join(', ')}</div>
                       )}
                     </div>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frontend Technologies</label>
-                  <MagicalField isChanged={detailedChanges?.technologies?.frontend?.hasChanges ?? false} intensity="subtle">
+                  <MagicalField isChanged={techChanges?.frontend?.hasChanges ?? false} intensity="subtle">
                     <input
                       type="text"
                       value={arrayToString(data.technologies.frontend)}
@@ -1562,20 +1562,20 @@ export default function CustomResumeForm({
                       placeholder="React, Vue, Angular, HTML, CSS"
                     />
                   </MagicalField>
-                  {detailedChanges?.technologies?.frontend && (detailedChanges.technologies.frontend.added.length > 0 || detailedChanges.technologies.frontend.removed.length > 0) && (
+                  {techChanges?.frontend && (techChanges.frontend.added.length > 0 || techChanges.frontend.removed.length > 0) && (
                     <div className="mt-1 text-xs space-y-1">
-                      {detailedChanges.technologies.frontend.added.length > 0 && (
-                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.frontend.added.join(', ')}</div>
+                      {techChanges.frontend.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {techChanges.frontend.added.join(', ')}</div>
                       )}
-                      {detailedChanges.technologies.frontend.removed.length > 0 && (
-                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.frontend.removed.join(', ')}</div>
+                      {techChanges.frontend.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {techChanges.frontend.removed.join(', ')}</div>
                       )}
                     </div>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cloud & DevOps</label>
-                  <MagicalField isChanged={detailedChanges?.technologies?.cloudAndDevOps?.hasChanges ?? false} intensity="subtle">
+                  <MagicalField isChanged={techChanges?.cloudAndDevOps?.hasChanges ?? false} intensity="subtle">
                     <input
                       type="text"
                       value={arrayToString(data.technologies.cloudAndDevOps)}
@@ -1584,13 +1584,13 @@ export default function CustomResumeForm({
                       placeholder="AWS, Docker, Kubernetes, Azure"
                     />
                   </MagicalField>
-                  {detailedChanges?.technologies?.cloudAndDevOps && (detailedChanges.technologies.cloudAndDevOps.added.length > 0 || detailedChanges.technologies.cloudAndDevOps.removed.length > 0) && (
+                  {techChanges?.cloudAndDevOps && (techChanges.cloudAndDevOps.added.length > 0 || techChanges.cloudAndDevOps.removed.length > 0) && (
                     <div className="mt-1 text-xs space-y-1">
-                      {detailedChanges.technologies.cloudAndDevOps.added.length > 0 && (
-                        <div className="text-green-600 dark:text-green-400">+ Added: {detailedChanges.technologies.cloudAndDevOps.added.join(', ')}</div>
+                      {techChanges.cloudAndDevOps.added.length > 0 && (
+                        <div className="text-green-600 dark:text-green-400">+ Added: {techChanges.cloudAndDevOps.added.join(', ')}</div>
                       )}
-                      {detailedChanges.technologies.cloudAndDevOps.removed.length > 0 && (
-                        <div className="text-red-600 dark:text-red-400">- Removed: {detailedChanges.technologies.cloudAndDevOps.removed.join(', ')}</div>
+                      {techChanges.cloudAndDevOps.removed.length > 0 && (
+                        <div className="text-red-600 dark:text-red-400">- Removed: {techChanges.cloudAndDevOps.removed.join(', ')}</div>
                       )}
                     </div>
                   )}
@@ -1636,14 +1636,16 @@ export default function CustomResumeForm({
                   />
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* Show array format (dynamic categories) */}
             {Array.isArray(data.technologies) && (
               <>
                 {data.technologies.map((tech, index) => {
-                  const categoryChanges = (detailedChanges?.technologies as any)?.isArrayFormat
-                    ? (detailedChanges.technologies as any).categories?.[index]
+                  const techChangesArrayFormat = detailedChanges?.technologies as { isArrayFormat: true; categories: Array<{ category: string; originalCategory?: string; categoryRenamed: boolean; isNewCategory: boolean; technologies: TechnologyChanges }> } | undefined;
+                  const categoryChanges = techChangesArrayFormat?.isArrayFormat
+                    ? techChangesArrayFormat.categories?.[index]
                     : null;
                   const isNewCategory = categoryChanges?.isNewCategory ?? false;
                   const categoryRenamed = categoryChanges?.categoryRenamed ?? false;
@@ -1758,7 +1760,7 @@ export default function CustomResumeForm({
 
                 {data.technologies.length === 0 && (
                   <div className="text-gray-500 dark:text-gray-400 text-sm italic py-4 text-center">
-                    No technology categories added yet. Click "Add Category" to add your first category.
+                    No technology categories added yet. Click &ldquo;Add Category&rdquo; to add your first category.
                   </div>
                 )}
 

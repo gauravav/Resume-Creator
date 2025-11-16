@@ -88,12 +88,12 @@ export default function RegisterPage() {
   return (
     <Layout>
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="max-w-md w-full space-y-8 bg-white/95 dark:bg-gray-800/95 backdrop-blur-lg p-8 rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/50 relative z-10">
+        <div className="max-w-md w-full space-y-6 sm:space-y-8 bg-white/95 dark:bg-gray-800/95 backdrop-blur-lg p-6 sm:p-8 rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/50 relative z-10">
           <div className="text-center">
             <div className="mx-auto h-12 w-12 bg-emerald-600 dark:bg-emerald-500 rounded-full flex items-center justify-center">
               <UserPlus className="h-6 w-6 text-white" />
             </div>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+            <h2 className="mt-6 text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">
               Create account
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -101,7 +101,7 @@ export default function RegisterPage() {
             </p>
           </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)} method="POST" action="#">
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

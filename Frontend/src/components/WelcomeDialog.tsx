@@ -41,7 +41,7 @@ const WelcomeDialog: React.FC = () => {
         {/* Body */}
         <div className="p-6">
           <p className="text-gray-700 dark:text-gray-300 text-center mb-4 leading-relaxed">
-            We're excited to have you here! This platform helps you create professional resumes
+            We&apos;re excited to have you here! This platform helps you create professional resumes
             with AI-powered assistance.
           </p>
           <p className="text-gray-700 dark:text-gray-300 text-center mb-6 leading-relaxed">
@@ -51,7 +51,7 @@ const WelcomeDialog: React.FC = () => {
           {/* Features List */}
           <div className="bg-blue-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 text-sm">
-              What you'll learn:
+              What you&apos;ll learn:
             </h3>
             <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
               <li className="flex items-start">

@@ -113,11 +113,16 @@ export async function parseResumeWithLLM(file: File): Promise<ParsedResume> {
 }
 
 export async function saveResumeWithParsedData(
-  file: File, 
+  file: File,
   parsedData: ParsedResume
 ): Promise<{success: boolean; message: string}> {
   try {
-    const response = await resumeApi.saveParsed(parsedData, file.name);
+    // Convert ParsedResume to ResumeData format
+    const resumeData = {
+      ...parsedData,
+      summary: typeof parsedData.summary === 'string' ? [parsedData.summary] : parsedData.summary
+    };
+    const response = await resumeApi.saveParsed(resumeData, file.name);
     return response;
   } catch (error) {
     console.error('Resume save error:', error);

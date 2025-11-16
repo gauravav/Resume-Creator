@@ -369,9 +369,9 @@ Proficient in JavaScript, Python, and cloud technologies.
                 <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">How to use:</h3>
                 <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
                   <li>Upload a .tex file or paste LaTeX content directly</li>
-                  <li>Click "Load Sample Template" to see an example resume</li>
+                  <li>Click &ldquo;Load Sample Template&rdquo; to see an example resume</li>
                   <li>Modify the content as needed</li>
-                  <li>Click "Convert to PDF & Download" to generate the PDF</li>
+                  <li>Click &ldquo;Convert to PDF &amp; Download&rdquo; to generate the PDF</li>
                   <li>The PDF will be automatically downloaded to your computer</li>
                 </ul>
               </div>

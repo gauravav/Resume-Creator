@@ -114,20 +114,23 @@ export interface Resume {
   isBaseResume: boolean;
 }
 
-interface ResumeResponse {
+interface UpdatePayload {
+  parsedData: ResumeData;
+  resumeName?: string;
+}
+
+interface ResumeApiResponse {
   id: number;
   fileName?: string;
   resumeFileName: string;
   jsonFileName: string;
+  pdfFileName?: string;
+  pdfStatus?: string;
+  pdfGeneratedAt?: string;
   originalName: string;
   uploadDate: string;
-  size: string;
-  isBaseResume?: boolean;
-}
-
-interface UpdatePayload {
-  parsedData: ResumeData;
-  resumeName?: string;
+  size: string | number;
+  isBaseResume: boolean;
 }
 
 export const authApi = {
@@ -135,7 +138,7 @@ export const authApi = {
     const response = await api.post('/api/auth/login', credentials);
     return response.data;
   },
-  
+
   register: async (credentials: RegisterCredentials) => {
     const response = await api.post('/api/auth/register', credentials);
     return response.data;
@@ -167,7 +170,7 @@ export const resumeApi = {
   getAll: async (): Promise<Resume[]> => {
     const response = await api.get('/api/resumes');
     const resumes = response.data.resumes || [];
-    return resumes.map((resume: any) => ({
+    return resumes.map((resume: ResumeApiResponse) => ({
       id: resume.id,
       fileName: resume.fileName || resume.resumeFileName,
       resumeFileName: resume.resumeFileName,
@@ -177,7 +180,7 @@ export const resumeApi = {
       pdfGeneratedAt: resume.pdfGeneratedAt,
       originalName: resume.originalName,
       uploadDate: resume.uploadDate,
-      size: parseInt(resume.size),
+      size: typeof resume.size === 'string' ? parseInt(resume.size) : resume.size,
       isBaseResume: resume.isBaseResume,
     }));
   },
@@ -255,7 +258,7 @@ export const resumeApi = {
     return response.data;
   },
 
-  saveParsed: async (parsedData: ResumeData | string, resumeName: string, structureMetadata?: any) => {
+  saveParsed: async (parsedData: ResumeData | string, resumeName: string, structureMetadata?: Record<string, unknown>) => {
     console.log('API saveParsed called with:', {
       resumeName,
       parsedDataType: typeof parsedData,
@@ -318,7 +321,7 @@ export const resumeApi = {
     return response.data;
   },
 
-  subscribeToPDFUpdates: (onUpdate: (data: any) => void, onError?: (error: Error) => void): EventSource | null => {
+  subscribeToPDFUpdates: (onUpdate: (data: unknown) => void, onError?: (error: Error) => void): EventSource | null => {
     // Check if we're in browser context
     if (typeof window === 'undefined') {
       console.warn('subscribeToPDFUpdates called in non-browser context');
