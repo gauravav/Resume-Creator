@@ -97,10 +97,18 @@ const TutorialOverlay: React.FC = () => {
       position: 'absolute',
       width: 0,
       height: 0,
-      borderTop: `${arrowSize}px solid transparent`,
-      borderRight: `${arrowSize}px solid transparent`,
-      borderBottom: `${arrowSize}px solid transparent`,
-      borderLeft: `${arrowSize}px solid transparent`,
+      borderTopWidth: `${arrowSize}px`,
+      borderTopStyle: 'solid',
+      borderTopColor: 'transparent',
+      borderRightWidth: `${arrowSize}px`,
+      borderRightStyle: 'solid',
+      borderRightColor: 'transparent',
+      borderBottomWidth: `${arrowSize}px`,
+      borderBottomStyle: 'solid',
+      borderBottomColor: 'transparent',
+      borderLeftWidth: `${arrowSize}px`,
+      borderLeftStyle: 'solid',
+      borderLeftColor: 'transparent',
     };
 
     switch (currentStepData.position) {

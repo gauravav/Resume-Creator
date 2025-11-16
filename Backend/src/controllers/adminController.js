@@ -306,7 +306,7 @@ const getAdminActions = ErrorHandler.asyncHandler(async (req, res) => {
 
   try {
     const actions = await AdminAction.getActionHistory(parseInt(page), parseInt(limit));
-    
+
     res.json(actions);
 
     logger.info('Admin action history retrieved', {
@@ -326,6 +326,61 @@ const getAdminActions = ErrorHandler.asyncHandler(async (req, res) => {
   }
 });
 
+const deleteUser = ErrorHandler.asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.getUserById(userId);
+    if (!user) {
+      throw ErrorHandler.createError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    // Prevent admin from deleting themselves
+    if (user.email === ADMIN_EMAIL) {
+      throw ErrorHandler.createError('Cannot delete admin account', 403, 'CANNOT_DELETE_ADMIN');
+    }
+
+    // Store user data for logging before deletion
+    const userData = {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      accountStatus: user.account_status
+    };
+
+    // Record admin action before deleting
+    await AdminAction.recordAction(req.user.email, 'delete_user', userId, {
+      deletedUserEmail: user.email,
+      deletedUserStatus: user.account_status
+    });
+
+    // Delete user and all associated data
+    await User.deleteUser(userId);
+
+    res.json({
+      message: 'User and all associated data deleted successfully',
+      user: userData
+    });
+
+    logger.info('User deleted by admin', {
+      adminEmail: req.user.email,
+      deletedUserId: userId,
+      deletedUserEmail: userData.email,
+      ip: req.ip
+    });
+
+  } catch (error) {
+    logger.error('Error deleting user', {
+      adminEmail: req.user.email,
+      targetUserId: userId,
+      error: error.message,
+      ip: req.ip
+    });
+    throw error;
+  }
+});
+
 module.exports = {
   requireAdmin,
   getDashboardStats,
@@ -334,5 +389,6 @@ module.exports = {
   approveUser,
   rejectUser,
   resetUserTokens,
-  getAdminActions
+  getAdminActions,
+  deleteUser
 };

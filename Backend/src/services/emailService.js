@@ -199,6 +199,16 @@ class EmailService {
   async sendVerificationEmail(email, verificationToken, firstName, req = null) {
     const frontendUrl = getFrontendUrl(req);
     const verificationUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
+
+    // Log verification URL to console
+    console.log('\n========================================');
+    console.log('EMAIL VERIFICATION LINK GENERATED');
+    console.log('========================================');
+    console.log(`User Email: ${email}`);
+    console.log(`User Name: ${firstName}`);
+    console.log(`Verification URL: ${verificationUrl}`);
+    console.log('========================================\n');
+
     const fromEmail = this.getFromEmail();
 
     const htmlContent = `

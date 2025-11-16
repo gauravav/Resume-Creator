@@ -13,7 +13,8 @@ import {
   UserCheck,
   UserX,
   AlertCircle,
-  FileCode
+  FileCode,
+  Trash2
 } from 'lucide-react';
 import { authApi, getApiBaseUrl } from '@/lib/api';
 import { isAuthenticatedWithValidation } from '@/lib/auth';
@@ -69,6 +70,17 @@ export default function AdminDashboard() {
     userName: ''
   });
   const [rejectReason, setRejectReason] = useState('');
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    userId: number | null;
+    userName: string;
+    userEmail: string;
+  }>({
+    isOpen: false,
+    userId: null,
+    userName: '',
+    userEmail: ''
+  });
   const [loadingStates, setLoadingStates] = useState<{[key: string]: boolean}>({});
 
   const router = useRouter();
@@ -217,12 +229,12 @@ export default function AdminDashboard() {
     }
 
     setLoadingStates(prev => ({ ...prev, [`reset-${userId}`]: true }));
-    
+
     try {
       const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-      
+
       const API_BASE_URL = getApiBaseUrl();
-      
+
       const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/reset-tokens`, {
         method: 'POST',
         headers: {
@@ -243,6 +255,42 @@ export default function AdminDashboard() {
       setError('Network error. Please try again.');
     } finally {
       setLoadingStates(prev => ({ ...prev, [`reset-${userId}`]: false }));
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteModal.userId) {
+      setError('No user selected for deletion');
+      return;
+    }
+
+    setLoadingStates(prev => ({ ...prev, [`delete-${deleteModal.userId}`]: true }));
+
+    try {
+      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+
+      const API_BASE_URL = getApiBaseUrl();
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${deleteModal.userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setSuccess(`User ${deleteModal.userName} deleted successfully!`);
+        setDeleteModal({ isOpen: false, userId: null, userName: '', userEmail: '' });
+        await loadDashboardData();
+        setTimeout(() => setSuccess(''), 5000);
+      } else {
+        const responseData = await response.json();
+        setError(responseData.error || 'Failed to delete user');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [`delete-${deleteModal.userId}`]: false }));
     }
   };
 
@@ -507,7 +555,7 @@ export default function AdminDashboard() {
                           <button
                             onClick={() => handleResetTokens(user.id)}
                             disabled={loadingStates[`reset-${user.id}`]}
-                            className="inline-flex items-center px-2 py-1 border border-red-300 rounded text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            className="inline-flex items-center px-2 py-1 border border-red-300 dark:border-red-700 rounded text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50"
                             title="Reset user's token count to zero"
                           >
                             {loadingStates[`reset-${user.id}`] ? (
@@ -517,6 +565,18 @@ export default function AdminDashboard() {
                             )}
                           </button>
                         )}
+                        <button
+                          onClick={() => setDeleteModal({
+                            isOpen: true,
+                            userId: user.id,
+                            userName: `${user.first_name} ${user.last_name}`,
+                            userEmail: user.email
+                          })}
+                          className="inline-flex items-center px-2 py-1 border border-red-500 dark:border-red-600 rounded text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50"
+                          title="Delete user and all associated data"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -566,6 +626,71 @@ export default function AdminDashboard() {
                     <XCircle className="h-4 w-4 mr-2" />
                   )}
                   Reject User
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Modal */}
+        {deleteModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mr-4">
+                  <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Delete User
+                </h3>
+              </div>
+
+              <div className="mb-6">
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                  Are you sure you want to permanently delete this user?
+                </p>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-3">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {deleteModal.userName}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {deleteModal.userEmail}
+                  </p>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                  <p className="text-sm text-red-800 dark:text-red-300 font-medium mb-1">
+                    ⚠️ This action cannot be undone
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-400">
+                    All associated data will be permanently deleted including:
+                  </p>
+                  <ul className="text-xs text-red-700 dark:text-red-400 list-disc list-inside mt-1">
+                    <li>User account</li>
+                    <li>All resumes and files</li>
+                    <li>Job descriptions</li>
+                    <li>Usage history</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 justify-end">
+                <button
+                  onClick={() => setDeleteModal({ isOpen: false, userId: null, userName: '', userEmail: '' })}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  disabled={loadingStates[`delete-${deleteModal.userId}`]}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                >
+                  {loadingStates[`delete-${deleteModal.userId}`] ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete Permanently
                 </button>
               </div>
             </div>

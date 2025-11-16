@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const { minioClient, BUCKET_NAME } = require('../config/minio');
 
 class User {
   static async createUser(email, password, firstName, lastName) {
@@ -265,6 +266,77 @@ class User {
 
     const result = await pool.query(query, values);
     return result.rows[0];
+  }
+
+  static async deleteUser(userId) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get all parsed resumes to delete files from MinIO
+      const parsedResumesResult = await client.query(
+        'SELECT resume_file_name, json_file_name, latex_file_name, pdf_file_name FROM parsed_resumes WHERE user_id = $1',
+        [userId]
+      );
+
+      // Get all generated resumes to delete files from MinIO
+      const generatedResumesResult = await client.query(
+        'SELECT file_name FROM generated_resumes WHERE user_id = $1 AND file_name IS NOT NULL',
+        [userId]
+      );
+
+      // Delete all files from MinIO
+      const filesToDelete = [];
+
+      // Collect all parsed resume files
+      parsedResumesResult.rows.forEach(resume => {
+        if (resume.resume_file_name) filesToDelete.push(resume.resume_file_name);
+        if (resume.json_file_name) filesToDelete.push(resume.json_file_name);
+        if (resume.latex_file_name) filesToDelete.push(resume.latex_file_name);
+        if (resume.pdf_file_name) filesToDelete.push(resume.pdf_file_name);
+      });
+
+      // Collect all generated resume files
+      generatedResumesResult.rows.forEach(resume => {
+        if (resume.file_name) filesToDelete.push(resume.file_name);
+      });
+
+      // Delete files from MinIO
+      if (filesToDelete.length > 0) {
+        try {
+          await minioClient.removeObjects(BUCKET_NAME, filesToDelete);
+        } catch (minioError) {
+          // Log error but don't fail the entire operation
+          console.error('Error deleting files from MinIO:', minioError);
+        }
+      }
+
+      // Delete all token usage records
+      await client.query('DELETE FROM token_usage WHERE user_id = $1', [userId]);
+
+      // Delete all admin actions related to this user
+      await client.query('DELETE FROM admin_actions WHERE target_user_id = $1', [userId]);
+
+      // Delete generated resumes (will also cascade to references)
+      await client.query('DELETE FROM generated_resumes WHERE user_id = $1', [userId]);
+
+      // Delete job descriptions
+      await client.query('DELETE FROM job_descriptions WHERE user_id = $1', [userId]);
+
+      // Delete parsed resumes
+      await client.query('DELETE FROM parsed_resumes WHERE user_id = $1', [userId]);
+
+      // Delete the user
+      const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id, email', [userId]);
+
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

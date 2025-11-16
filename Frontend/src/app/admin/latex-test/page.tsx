@@ -4,26 +4,22 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  FileText,
-  User,
-  LogOut,
-  ChevronDown,
   Upload,
   Download,
   CheckCircle,
   AlertCircle,
   FileCode,
-  Loader
+  Loader,
+  FileText
 } from 'lucide-react';
 import { authApi, getApiBaseUrl } from '@/lib/api';
-import { removeToken, isAuthenticatedWithValidation } from '@/lib/auth';
+import { isAuthenticatedWithValidation } from '@/lib/auth';
 import Layout from '@/components/Layout';
 
 export default function LatexTestPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isValidating, setIsValidating] = useState(true);
   const [user, setUser] = useState<{id: number; email: string; firstName: string; lastName: string; isAdmin: boolean} | null>(null);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [latexContent, setLatexContent] = useState('');
@@ -217,11 +213,6 @@ Proficient in JavaScript, Python, and cloud technologies.
     }
   };
 
-  const handleLogout = () => {
-    removeToken();
-    router.push('/');
-  };
-
   if (isValidating || isLoading) {
     return (
       <Layout>
@@ -238,108 +229,38 @@ Proficient in JavaScript, Python, and cloud technologies.
   }
 
   return (
-    <Layout showNav={false}>
+    <Layout>
       <div className="min-h-screen">
-        {/* Custom Header */}
-        <div className="relative z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="pt-8 pb-6">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-4">
-                  <Link href="/" className="flex items-center group">
-                    <FileText className="h-8 w-8 text-indigo-400 mr-2 group-hover:text-indigo-300 transition-colors" />
-                    <span className="text-xl font-bold text-white group-hover:text-indigo-100 transition-colors">Resume Creator</span>
-                  </Link>
-                  <div className="hidden sm:block">
-                    <span className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      LaTeX Test Tool
-                    </span>
-                  </div>
-                </div>
-
-                {user && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setUserMenuOpen(!userMenuOpen)}
-                      className="flex items-center space-x-3 text-white hover:text-indigo-200 transition-colors bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <User className="h-5 w-5" />
-                        <span className="font-medium">{user.firstName} {user.lastName}</span>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {userMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
-                        <div className="py-1">
-                          <Link
-                            href="/admin"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <User className="h-4 w-4 mr-2" />
-                            Admin Dashboard
-                          </Link>
-                          <Link
-                            href="/dashboard"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <User className="h-4 w-4 mr-2" />
-                            User Dashboard
-                          </Link>
-                          <hr className="border-gray-100" />
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false);
-                              handleLogout();
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                          >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </nav>
-          </div>
-        </div>
-
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Messages */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4 mb-6">
               <div className="flex">
-                <AlertCircle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0" />
-                <p className="text-red-700 text-sm">{error}</p>
+                <AlertCircle className="h-5 w-5 text-red-400 dark:text-red-300 mr-2 flex-shrink-0" />
+                <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
               </div>
             </div>
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 mb-6">
               <div className="flex">
-                <CheckCircle className="h-5 w-5 text-green-400 mr-2 flex-shrink-0" />
-                <p className="text-green-700 text-sm">{success}</p>
+                <CheckCircle className="h-5 w-5 text-green-400 dark:text-green-300 mr-2 flex-shrink-0" />
+                <p className="text-green-700 dark:text-green-300 text-sm">{success}</p>
               </div>
             </div>
           )}
 
           {/* LaTeX Status */}
           {latexStatus && (
-            <div className={`${latexStatus.installed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border rounded-md p-4 mb-6`}>
+            <div className={`${latexStatus.installed ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'} border rounded-md p-4 mb-6`}>
               <div className="flex items-center">
                 {latexStatus.installed ? (
-                  <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
+                  <CheckCircle className="h-5 w-5 text-green-400 dark:text-green-300 mr-2" />
                 ) : (
-                  <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+                  <AlertCircle className="h-5 w-5 text-red-400 dark:text-red-300 mr-2" />
                 )}
-                <p className={`${latexStatus.installed ? 'text-green-700' : 'text-red-700'} text-sm font-medium`}>
+                <p className={`${latexStatus.installed ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'} text-sm font-medium`}>
                   {latexStatus.message}
                 </p>
               </div>
@@ -347,16 +268,16 @@ Proficient in JavaScript, Python, and cloud technologies.
           )}
 
           {/* Main Content */}
-          <div className="bg-white rounded-lg shadow-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <FileCode className="h-6 w-6 text-indigo-600 mr-3" />
-                  <h2 className="text-lg font-medium text-gray-900">LaTeX to PDF Converter Test</h2>
+                  <FileCode className="h-6 w-6 text-indigo-600 dark:text-indigo-400 mr-3" />
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">LaTeX to PDF Converter Test</h2>
                 </div>
                 <Link
                   href="/admin"
-                  className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium"
                 >
                   ← Back to Admin Dashboard
                 </Link>
@@ -366,7 +287,7 @@ Proficient in JavaScript, Python, and cloud technologies.
             <div className="p-6 space-y-6">
               {/* File Upload and Actions */}
               <div className="flex flex-wrap gap-3">
-                <label className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                <label className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
                   <Upload className="h-4 w-4 mr-2" />
                   Upload .tex File
                   <input
@@ -379,7 +300,7 @@ Proficient in JavaScript, Python, and cloud technologies.
 
                 <button
                   onClick={handleLoadSample}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Load Sample Template
@@ -388,31 +309,31 @@ Proficient in JavaScript, Python, and cloud technologies.
 
               {/* File Name Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Output File Name (without extension)
                 </label>
                 <input
                   type="text"
                   value={fileName}
                   onChange={(e) => setFileName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent"
                   placeholder="document-name"
                 />
               </div>
 
               {/* LaTeX Content Editor */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   LaTeX Content
                 </label>
                 <textarea
                   value={latexContent}
                   onChange={(e) => setLatexContent(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent font-mono text-sm"
                   rows={20}
                   placeholder="Paste your LaTeX content here or upload a .tex file..."
                 />
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Characters: {latexContent.length}
                 </p>
               </div>
@@ -422,7 +343,7 @@ Proficient in JavaScript, Python, and cloud technologies.
                 <button
                   onClick={handleConvertToPdf}
                   disabled={isConverting || !latexContent.trim() || !latexStatus?.installed}
-                  className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isConverting ? (
                     <>
@@ -437,16 +358,16 @@ Proficient in JavaScript, Python, and cloud technologies.
                   )}
                 </button>
                 {!latexStatus?.installed && (
-                  <p className="mt-2 text-sm text-red-600 text-center">
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400 text-center">
                     pdflatex is not installed. Please install MacTeX to use this feature.
                   </p>
                 )}
               </div>
 
               {/* Help Text */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                <h3 className="text-sm font-medium text-blue-900 mb-2">How to use:</h3>
-                <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-4">
+                <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">How to use:</h3>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
                   <li>Upload a .tex file or paste LaTeX content directly</li>
                   <li>Click "Load Sample Template" to see an example resume</li>
                   <li>Modify the content as needed</li>

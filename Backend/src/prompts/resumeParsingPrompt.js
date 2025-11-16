@@ -117,7 +117,10 @@ TEMPLATE TO FOLLOW STRICTLY:
 PARSING INSTRUCTIONS:
 1. Use the above template structure EXACTLY - do not add, remove, or rename any fields
 2. Fill in the empty strings and arrays with extracted data from the resume
-3. For summary: Extract professional summary as an ARRAY of individual points/sentences. If the summary is written as a paragraph, split it into logical bullet points.
+3. For summary: Extract professional summary as an ARRAY.
+   - If the summary is a SINGLE PARAGRAPH with no bullet points, keep it as ONE array element (do not split it)
+   - If the summary has MULTIPLE BULLET POINTS or distinct separate points, then each bullet point should be a separate array element
+   - Preserve the original structure - only split if the resume already has it split into bullets
 4. Split full names: "John Doe" becomes firstName: "John", lastName: "Doe"
 5. For dates: use month names (e.g., "January") and 4-digit years, set day to null
 6. For current positions: leave end month empty "", but include current year

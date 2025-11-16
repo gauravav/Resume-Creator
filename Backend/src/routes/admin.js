@@ -8,7 +8,8 @@ const {
   approveUser,
   rejectUser,
   resetUserTokens,
-  getAdminActions
+  getAdminActions,
+  deleteUser
 } = require('../controllers/adminController');
 
 const router = express.Router();
@@ -27,5 +28,6 @@ router.get('/actions', getAdminActions);
 router.post('/users/:userId/approve', approveUser);
 router.post('/users/:userId/reject', rejectUser);
 router.post('/users/:userId/reset-tokens', resetUserTokens);
+router.delete('/users/:userId', deleteUser);
 
 module.exports = router;

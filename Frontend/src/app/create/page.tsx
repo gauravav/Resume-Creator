@@ -55,6 +55,11 @@ export default function CreateResumePage() {
   const [customResumeName, setCustomResumeName] = useState('');
   const [originalResumeData, setOriginalResumeData] = useState<ResumeData | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showGamesModal, setShowGamesModal] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [jobUrl, setJobUrl] = useState('');
+  const [isScrapingUrl, setIsScrapingUrl] = useState(false);
+  const [urlError, setUrlError] = useState('');
   const router = useRouter();
 
   // Tutorial hook
@@ -88,6 +93,64 @@ export default function CreateResumePage() {
       setError('Failed to load resumes');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleScrapeUrl = async () => {
+    if (!jobUrl.trim()) {
+      setUrlError('Please enter a URL');
+      return;
+    }
+
+    setIsScrapingUrl(true);
+    setUrlError('');
+
+    try {
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3200'}/api/jobs/scrape`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ url: jobUrl })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to scrape job posting');
+      }
+
+      const result = await response.json();
+      const { companyName, jobDescription, responsibilities } = result.data;
+
+      // Auto-fill company name
+      if (companyName) {
+        setCompanyName(companyName);
+      }
+
+      // Combine job description and responsibilities
+      let fullJobDescription = '';
+      if (jobDescription) {
+        fullJobDescription = jobDescription;
+      }
+      if (responsibilities && responsibilities.length > 0) {
+        fullJobDescription += fullJobDescription ? '\n\nKey Responsibilities:\n' : 'Key Responsibilities:\n';
+        fullJobDescription += responsibilities.map((r: string) => `• ${r}`).join('\n');
+      }
+
+      setJobDescription(fullJobDescription);
+      setUrlError('');
+
+    } catch (error) {
+      console.error('URL scraping error:', error);
+      setUrlError(error instanceof Error ? error.message : 'Failed to scrape URL. Please try again.');
+    } finally {
+      setIsScrapingUrl(false);
     }
   };
 
@@ -131,6 +194,7 @@ export default function CreateResumePage() {
     }
 
     setIsCreating(true);
+    setShowGamesModal(true);
     setError('');
 
     try {
@@ -151,8 +215,10 @@ export default function CreateResumePage() {
     } catch (error) {
       console.error('Failed to create custom resume:', error);
       setError('Failed to create custom resume. Please try again.');
+      setShowGamesModal(false); // Close on error
     } finally {
       setIsCreating(false);
+      // Don't close modal here - let user close it manually
     }
   };
 
@@ -503,6 +569,74 @@ export default function CreateResumePage() {
                     </div>
                   </div>
 
+                  {/* Job URL (Optional but Suggested) */}
+                  <div className="flex-shrink-0 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <label htmlFor="jobUrl" className="block text-sm font-semibold text-gray-900 dark:text-white">
+                        Job Posting URL <span className="text-blue-600 dark:text-blue-400 text-xs">(optional but recommended)</span>
+                      </label>
+                      <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        id="jobUrl"
+                        value={jobUrl}
+                        onChange={(e) => {
+                          setJobUrl(e.target.value);
+                          setUrlError('');
+                        }}
+                        className="flex-1 border-2 border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
+                        placeholder="https://linkedin.com/jobs/view/..."
+                        disabled={isScrapingUrl}
+                      />
+                      <button
+                        onClick={handleScrapeUrl}
+                        disabled={isScrapingUrl || !jobUrl.trim()}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isScrapingUrl ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" />
+                            Auto-Fill
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                      Paste a job posting URL to automatically extract company name, job description, and responsibilities
+                    </p>
+                    {urlError && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-2 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {urlError}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Company Name (Optional) */}
+                  <div className="flex-shrink-0">
+                    <label htmlFor="companyName" className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                      Company Name <span className="text-gray-400 dark:text-gray-500 text-xs">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="companyName"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400"
+                      placeholder="e.g., Google, Microsoft, Amazon"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Used to auto-generate resume name (auto-filled from URL if available)
+                    </p>
+                  </div>
+
                   {/* Job Description Form */}
                   <div className="flex-1 flex flex-col min-h-0">
                     <label htmlFor="description" className="block text-sm font-semibold text-gray-900 dark:text-white mb-3 flex-shrink-0">
@@ -605,11 +739,17 @@ Include:
           modifiedData={customizedResumeData}
           initialResumeName={customResumeName}
           basedOnResumeName={selectedResume?.originalName}
+          companyName={companyName}
+          existingResumes={resumes}
         />
       )}
 
       {/* Mini Games Modal */}
-      <ParsingGames isOpen={isCreating} />
+      <ParsingGames
+        isOpen={showGamesModal}
+        isProcessing={isCreating}
+        onClose={() => setShowGamesModal(false)}
+      />
 
       {/* Tutorial Help Button */}
       {!isTutorialActive && (

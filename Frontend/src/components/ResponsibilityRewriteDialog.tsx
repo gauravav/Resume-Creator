@@ -131,8 +131,8 @@ export default function ResponsibilityRewriteDialog({
       className="fixed inset-0 backdrop-blur-md bg-white/20 dark:bg-black/40 z-[60] overflow-y-auto"
       onClick={handleBackdropClick}
     >
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+      <div className="min-h-screen w-full flex items-center justify-center p-4 py-20">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto relative">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { 
+import { useState, useEffect } from 'react';
+import {
   X,
   AlertCircle,
   FileText,
@@ -11,9 +11,24 @@ import {
   FolderOpen,
   Code,
   Save,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { ResumeData } from '@/types/resume';
+
+interface Resume {
+  id: number;
+  fileName: string;
+  resumeFileName: string;
+  jsonFileName: string;
+  pdfFileName: string;
+  pdfStatus: string;
+  pdfGeneratedAt: string | null;
+  originalName: string;
+  uploadDate: string;
+  size: number;
+  isBaseResume: boolean;
+}
 
 interface SaveCustomResumeDialogProps {
   isOpen: boolean;
@@ -23,6 +38,8 @@ interface SaveCustomResumeDialogProps {
   modifiedData: ResumeData;
   initialResumeName: string;
   basedOnResumeName?: string;
+  companyName?: string;
+  existingResumes: Resume[];
 }
 
 interface ChangesSummary {
@@ -58,18 +75,60 @@ interface ChangesSummary {
   };
 }
 
-export default function SaveCustomResumeDialog({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  originalData, 
-  modifiedData, 
+export default function SaveCustomResumeDialog({
+  isOpen,
+  onClose,
+  onSave,
+  originalData,
+  modifiedData,
   initialResumeName,
-  basedOnResumeName
+  basedOnResumeName,
+  companyName = '',
+  existingResumes
 }: SaveCustomResumeDialogProps) {
   const [resumeName, setResumeName] = useState(initialResumeName);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>('');
+
+  // Generate unique resume name
+  const generateResumeName = (): string => {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const time = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+
+    let baseName = '';
+    if (companyName.trim()) {
+      // Sanitize company name - remove special characters
+      const sanitizedCompany = companyName.trim().replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-');
+      baseName = `${sanitizedCompany}-${date}-${time}`;
+    } else {
+      baseName = `Resume-${date}-${time}`;
+    }
+
+    // Check if name exists and add counter if needed
+    let finalName = baseName;
+    let counter = 1;
+
+    while (existingResumes.some(resume => resume.originalName === finalName)) {
+      finalName = `${baseName}-${counter}`;
+      counter++;
+    }
+
+    return finalName;
+  };
+
+  // Auto-generate name on mount or when company name/existing resumes change
+  useEffect(() => {
+    if (isOpen) {
+      const generatedName = generateResumeName();
+      setResumeName(generatedName);
+    }
+  }, [isOpen, companyName, existingResumes.length]);
+
+  // Check if resume name already exists
+  const checkDuplicateName = (name: string): boolean => {
+    return existingResumes.some(resume => resume.originalName === name.trim());
+  };
 
   const analyzeChanges = (): ChangesSummary => {
     const changes: ChangesSummary = {};
@@ -160,14 +219,20 @@ export default function SaveCustomResumeDialog({
       return;
     }
 
+    // Check for duplicate name
+    if (checkDuplicateName(resumeName)) {
+      setSaveError('A resume with this name already exists. Please choose a different name.');
+      return;
+    }
+
     setIsSaving(true);
     setSaveError('');
-    
+
     try {
       console.log('Dialog attempting to save with name:', resumeName.trim());
       console.log('Dialog - modifiedData available:', !!modifiedData);
       console.log('Dialog - originalData available:', !!originalData);
-      
+
       await onSave(resumeName.trim());
       console.log('Dialog - onSave completed successfully');
       // onClose will be called from the parent component after successful save
@@ -293,18 +358,36 @@ export default function SaveCustomResumeDialog({
             <label htmlFor="resumeName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Resume Name <span className="text-red-500 dark:text-red-400">*</span>
             </label>
-            <input
-              type="text"
-              id="resumeName"
-              value={resumeName}
-              onChange={(e) => {
-                setResumeName(e.target.value);
-                if (saveError) setSaveError(''); // Clear error when user starts typing
-              }}
-              className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              placeholder="Enter a name for this customized resume"
-              disabled={isSaving}
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                id="resumeName"
+                value={resumeName}
+                onChange={(e) => {
+                  setResumeName(e.target.value);
+                  if (saveError) setSaveError(''); // Clear error when user starts typing
+                }}
+                className="block flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Enter a name for this customized resume"
+                disabled={isSaving}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const newName = generateResumeName();
+                  setResumeName(newName);
+                  if (saveError) setSaveError('');
+                }}
+                disabled={isSaving}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+                title="Regenerate resume name"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Auto-generated based on {companyName.trim() ? 'company name' : 'current date/time'}. You can edit this name.
+            </p>
             {saveError && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">{saveError}</p>
             )}

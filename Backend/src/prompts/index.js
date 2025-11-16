@@ -12,6 +12,7 @@ const createLatexToJsonPrompt = require('./latexToJsonPrompt');
 const createJsonToLatexPrompt = require('./jsonToLatexPrompt');
 const createLatexFixPrompt = require('./latexFixPrompt');
 const createResumeStructureExtractionPrompt = require('./resumeStructureExtractionPrompt');
+const createJobPostingExtractionPrompt = require('./jobPostingExtractionPrompt');
 
 module.exports = {
   createResumeParsingPrompt,
@@ -21,5 +22,6 @@ module.exports = {
   createLatexToJsonPrompt,
   createJsonToLatexPrompt,
   createLatexFixPrompt,
-  createResumeStructureExtractionPrompt
+  createResumeStructureExtractionPrompt,
+  createJobPostingExtractionPrompt
 };

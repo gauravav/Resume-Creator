@@ -31,6 +31,7 @@ export default function ParseOnlyResumePage() {
   const [showParseOption, setShowParseOption] = useState(false);
   const [error, setError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showGamesModal, setShowGamesModal] = useState(false);
   const router = useRouter();
 
   // Tutorial hook
@@ -101,6 +102,7 @@ export default function ParseOnlyResumePage() {
     if (!file) return;
 
     setIsParsing(true);
+    setShowGamesModal(true);
     setError('');
 
     try {
@@ -112,8 +114,10 @@ export default function ParseOnlyResumePage() {
     } catch (error) {
       console.error('Parse error:', error);
       setError('Failed to parse resume. Please try again.');
+      setShowGamesModal(false); // Close on error
     } finally {
       setIsParsing(false);
+      // Don't close modal here - let user close it manually
     }
   };
 
@@ -160,7 +164,7 @@ export default function ParseOnlyResumePage() {
             </div>
           )}
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg shadow">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-medium text-gray-900 dark:text-white">Create New Resume</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -327,7 +331,11 @@ export default function ParseOnlyResumePage() {
       </div>
 
       {/* Mini Games Modal */}
-      <ParsingGames isOpen={isParsing} />
+      <ParsingGames
+        isOpen={showGamesModal}
+        isProcessing={isParsing}
+        onClose={() => setShowGamesModal(false)}
+      />
 
       {/* Tutorial Help Button */}
       {!isTutorialActive && (
