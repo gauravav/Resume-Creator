@@ -37,7 +37,8 @@ const corsOptions = {
       /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:300[01]$/, // 192.168.x.x:3000 or :3001
       /^http:\/\/172\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[01]$/, // 172.x.x.x:3000 or :3001
       /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:300[01]$/, // 10.x.x.x:3000 or :3001
-      /^http:\/\/143\.198\.11\.73:3000$/,       // Production server
+      /^http:\/\/143\.198\.11\.73:3000$/,       // Production server 1
+      /^http:\/\/45\.55\.129\.63:3000$/,        // Production server 2
     ];
 
     const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
