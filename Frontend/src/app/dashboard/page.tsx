@@ -11,7 +11,8 @@ import {
   Edit,
   FileDown,
   Zap,
-  RotateCcw
+  RotateCcw,
+  FileType
 } from 'lucide-react';
 import { resumeApi, Resume, authApi, tokenApi, accountApi } from '@/lib/api';
 import { isAuthenticatedWithValidation } from '@/lib/auth';
@@ -271,6 +272,23 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDownloadWord = async (resume: Resume) => {
+    try {
+      const blob = await resumeApi.downloadWord(resume.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resume.originalName}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: unknown) {
+      console.error('Word download error:', error);
+      setError('Failed to download Word document. Please try again.');
+    }
+  };
+
   const handleDeleteClick = (resume: Resume) => {
     setDeleteDialog({
       isOpen: true,
@@ -500,6 +518,13 @@ export default function DashboardPage() {
                         ) : (
                           <FileDown className="h-4 w-4" />
                         )}
+                      </button>
+                      <button
+                        onClick={() => handleDownloadWord(resume)}
+                        className="inline-flex items-center p-2 border border-purple-300 dark:border-purple-700 rounded-md text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30"
+                        title="Download resume as Word document (.docx)"
+                      >
+                        <FileType className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDownload(resume)}

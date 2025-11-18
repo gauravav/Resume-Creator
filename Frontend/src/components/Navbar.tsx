@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { FileText, User, ChevronDown, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { FileText, User, ChevronDown, LogOut, LogIn, UserPlus, Menu, X } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { authApi, accountApi } from '@/lib/api';
 import { isAuthenticated, validateTokenWithServer, removeToken } from '@/lib/auth';
@@ -22,6 +22,7 @@ export default function Navbar() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [user, setUser] = useState<NavbarUser | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Initialize user from localStorage to persist across rate limit errors
   useEffect(() => {
@@ -84,11 +85,22 @@ export default function Navbar() {
           setUserMenuOpen(false);
         }
       }
+      if (mobileMenuOpen) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-mobile-menu]')) {
+          setMobileMenuOpen(false);
+        }
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [userMenuOpen]);
+  }, [userMenuOpen, mobileMenuOpen]);
+
+  // Close mobile menu when pathname changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const handleLogout = () => {
     removeToken();
@@ -221,13 +233,109 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Right side - Theme toggle and user menu/auth buttons */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Right side - Desktop: Theme toggle and user menu/auth buttons */}
+          <div className="hidden md:flex items-center space-x-3">
             <ThemeToggle />
             {getAuthButtons()}
           </div>
+
+          {/* Right side - Mobile/Tablet: Theme toggle and hamburger menu */}
+          <div className="flex md:hidden items-center space-x-2">
+            <ThemeToggle />
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Menu"
+              data-mobile-menu
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Mobile/Tablet Menu */}
+      {mobileMenuOpen && (
+        <div
+          className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
+          data-mobile-menu
+        >
+          <div className="px-4 py-3 space-y-2">
+            {authenticated && user ? (
+              <>
+                {/* User info */}
+                <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+                  <div className="font-medium">
+                    {user.firstName && user.lastName
+                      ? `${user.firstName} ${user.lastName}`
+                      : user.email}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                </div>
+
+                {/* Menu items */}
+                <Link
+                  href="/dashboard"
+                  className="flex items-center px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <FileText className="h-5 w-5 mr-3" />
+                  Dashboard
+                </Link>
+
+                <Link
+                  href="/account"
+                  className="flex items-center px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <User className="h-5 w-5 mr-3" />
+                  Account
+                </Link>
+
+                {user.isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center px-3 py-2 rounded-md text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                  >
+                    <svg className="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Admin Dashboard
+                  </Link>
+                )}
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center w-full px-3 py-2 rounded-md text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                >
+                  <LogOut className="h-5 w-5 mr-3" />
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                {pathname !== '/login' && (
+                  <Link
+                    href="/login"
+                    className="flex items-center px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <LogIn className="h-5 w-5 mr-3" />
+                    Sign In
+                  </Link>
+                )}
+
+                {pathname !== '/register' && (
+                  <Link
+                    href="/register"
+                    className="flex items-center px-3 py-2 rounded-md text-white bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+                  >
+                    <UserPlus className="h-5 w-5 mr-3" />
+                    Sign Up
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

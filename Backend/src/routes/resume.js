@@ -17,6 +17,7 @@ const {
   updateParsedData,
   customizeResumeForJob,
   generateResumePDF,
+  generateResumeDOCX,
   checkPDFStatus,
   subscribePDFUpdates,
 } = require('../controllers/resumeController');
@@ -48,6 +49,7 @@ router.put('/parsed-data/:resumeId', updateParsedData);
 router.get('/base', getBaseResume);
 router.put('/base/:resumeId', setBaseResume);
 router.get('/pdf/:resumeId', generateResumePDF);
+router.get('/docx/:resumeId', fileDownloadLimiter, generateResumeDOCX);
 router.get('/pdf-status/:resumeId', checkPDFStatus);
 router.get('/download/:fileName(*)', fileDownloadLimiter, downloadResume);
 router.delete('/:resumeId', deleteResume);

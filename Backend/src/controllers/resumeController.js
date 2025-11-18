@@ -1011,6 +1011,229 @@ const generateResumePDF = async (req, res) => {
   }
 };
 
+const generateResumeDOCX = async (req, res) => {
+  try {
+    const { resumeId } = req.params;
+
+    if (!resumeId) {
+      return res.status(400).json({ error: 'Resume ID is required' });
+    }
+
+    // Get resume data from database
+    const query = 'SELECT * FROM parsed_resumes WHERE id = $1 AND user_id = $2';
+    const result = await pool.query(query, [resumeId, req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+
+    const resume = result.rows[0];
+
+    // Fetch resume JSON data from MinIO
+    try {
+      const jsonStream = await minioClient.getObject(BUCKET_NAME, resume.json_file_name);
+      const jsonChunks = [];
+      for await (const chunk of jsonStream) {
+        jsonChunks.push(chunk);
+      }
+      const jsonContent = Buffer.concat(jsonChunks).toString();
+      const resumeData = JSON.parse(jsonContent);
+
+      // Generate DOCX using the docx library
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = require('docx');
+
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            // Header with name
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`,
+                  bold: true,
+                  size: 32,
+                }),
+              ],
+            }),
+
+            // Contact Information
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: [
+                    resumeData.personalInfo.email,
+                    resumeData.personalInfo.phone,
+                    resumeData.personalInfo.location
+                  ].filter(Boolean).join(' | '),
+                  size: 20,
+                }),
+              ],
+            }),
+
+            // Links
+            ...(resumeData.personalInfo.linkedin || resumeData.personalInfo.github || resumeData.personalInfo.website ? [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: [
+                      resumeData.personalInfo.linkedin,
+                      resumeData.personalInfo.github,
+                      resumeData.personalInfo.website
+                    ].filter(Boolean).join(' | '),
+                    size: 18,
+                  }),
+                ],
+              }),
+            ] : []),
+
+            new Paragraph({ text: '' }), // Spacing
+
+            // Summary
+            ...(resumeData.summary && resumeData.summary.length > 0 ? [
+              new Paragraph({
+                text: 'PROFESSIONAL SUMMARY',
+                heading: HeadingLevel.HEADING_1,
+              }),
+              ...resumeData.summary.map(item => new Paragraph({
+                text: `• ${item}`,
+                spacing: { before: 100, after: 100 },
+              })),
+              new Paragraph({ text: '' }),
+            ] : []),
+
+            // Experience
+            ...(resumeData.experience && resumeData.experience.length > 0 ? [
+              new Paragraph({
+                text: 'PROFESSIONAL EXPERIENCE',
+                heading: HeadingLevel.HEADING_1,
+              }),
+              ...resumeData.experience.flatMap(exp => [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: exp.company,
+                      bold: true,
+                      size: 24,
+                    }),
+                  ],
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `${exp.title} | ${exp.location} | ${exp.dates}`,
+                      italics: true,
+                    }),
+                  ],
+                }),
+                ...exp.responsibilities.map(resp => new Paragraph({
+                  text: `• ${resp}`,
+                  spacing: { before: 50, after: 50 },
+                })),
+                new Paragraph({ text: '' }),
+              ]),
+            ] : []),
+
+            // Education
+            ...(resumeData.education && resumeData.education.length > 0 ? [
+              new Paragraph({
+                text: 'EDUCATION',
+                heading: HeadingLevel.HEADING_1,
+              }),
+              ...resumeData.education.flatMap(edu => [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: edu.institution,
+                      bold: true,
+                      size: 24,
+                    }),
+                  ],
+                }),
+                new Paragraph({
+                  text: `${edu.degree} | ${edu.dates}`,
+                  italics: true,
+                }),
+                new Paragraph({ text: '' }),
+              ]),
+            ] : []),
+
+            // Technologies/Skills
+            ...(resumeData.technologies ? [
+              new Paragraph({
+                text: 'TECHNICAL SKILLS',
+                heading: HeadingLevel.HEADING_1,
+              }),
+              ...(Array.isArray(resumeData.technologies)
+                ? resumeData.technologies.map(tech => new Paragraph({
+                    text: `• ${tech.category}: ${tech.items.join(', ')}`,
+                    spacing: { before: 100, after: 100 },
+                  }))
+                : Object.entries(resumeData.technologies).map(([category, items]) => new Paragraph({
+                    text: `• ${category}: ${Array.isArray(items) ? items.join(', ') : items}`,
+                    spacing: { before: 100, after: 100 },
+                  }))
+              ),
+              new Paragraph({ text: '' }),
+            ] : []),
+
+            // Projects
+            ...(resumeData.projects && resumeData.projects.length > 0 ? [
+              new Paragraph({
+                text: 'PROJECTS',
+                heading: HeadingLevel.HEADING_1,
+              }),
+              ...resumeData.projects.flatMap(proj => [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: proj.name,
+                      bold: true,
+                      size: 24,
+                    }),
+                  ],
+                }),
+                new Paragraph({
+                  text: proj.description,
+                }),
+                ...(proj.technologies ? [new Paragraph({
+                  text: `Technologies: ${proj.technologies}`,
+                  italics: true,
+                })] : []),
+                new Paragraph({ text: '' }),
+              ]),
+            ] : []),
+          ],
+        }],
+      });
+
+      // Generate DOCX buffer
+      const buffer = await Packer.toBuffer(doc);
+
+      const fileName = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.docx`;
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error generating DOCX:', error);
+      return res.status(500).json({ error: 'Failed to generate Word document' });
+    }
+
+  } catch (error) {
+    console.error('DOCX generation error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate Word document', details: error.message });
+    }
+  }
+};
+
 const checkPDFStatus = async (req, res) => {
   try {
     const { resumeId } = req.params;
@@ -1112,6 +1335,7 @@ module.exports = {
   updateParsedData,
   customizeResumeForJob,
   generateResumePDF,
+  generateResumeDOCX,
   checkPDFStatus,
   subscribePDFUpdates,
 };

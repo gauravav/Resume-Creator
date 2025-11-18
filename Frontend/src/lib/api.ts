@@ -45,6 +45,9 @@ api.interceptors.request.use((config) => {
 let lastRateLimitToast: { message: string; timestamp: number } | null = null;
 const RATE_LIMIT_TOAST_COOLDOWN = 10000; // 10 seconds cooldown between same rate limit toasts
 
+// Session expiration toast deduplication
+let sessionExpiredShown = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -54,15 +57,15 @@ api.interceptors.response.use(
       const retryAfter = errorData?.retryAfter || 'a few minutes';
       const message = `Rate limit exceeded. Please try again after ${retryAfter}.`;
       const now = Date.now();
-      
+
       // Check if we should show this toast (deduplication)
-      const shouldShowToast = !lastRateLimitToast || 
-        lastRateLimitToast.message !== message || 
+      const shouldShowToast = !lastRateLimitToast ||
+        lastRateLimitToast.message !== message ||
         (now - lastRateLimitToast.timestamp) > RATE_LIMIT_TOAST_COOLDOWN;
-      
+
       if (shouldShowToast && typeof window !== 'undefined') {
         lastRateLimitToast = { message, timestamp: now };
-        
+
         // Use a timeout to ensure toast manager is initialized
         setTimeout(() => {
           const toastEvent = new CustomEvent('showToast', {
@@ -76,14 +79,84 @@ api.interceptors.response.use(
         }, 100);
       }
     }
-    
-    // Only redirect to login if it's an invalid/expired token, not login failures
-    if (error.response?.status === 401 && 
+
+    // Handle expired/invalid token (401 Unauthorized)
+    if (error.response?.status === 401 &&
         !error.config?.url?.includes('/api/auth/login') &&
-        !error.config?.url?.includes('/api/auth/register')) {
-      Cookies.remove('token');
-      window.location.href = '/login';
+        !error.config?.url?.includes('/api/auth/register') &&
+        !error.config?.url?.includes('/api/auth/resend-verification')) {
+
+      // Check if it's a pending approval error
+      const errorCode = error.response?.data?.code;
+      const errorMessage = error.response?.data?.message;
+
+      if (errorCode === 'PENDING_APPROVAL' || errorMessage?.includes('pending approval')) {
+        // User is waiting for admin approval - show friendly message
+        if (typeof window !== 'undefined') {
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              type: 'warning',
+              message: '⏳ Your account is pending admin approval. You will receive an email once approved.',
+              duration: 8000
+            }
+          });
+          window.dispatchEvent(toastEvent);
+
+          // Redirect to login (but don't clear token - they have a valid token, just pending)
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        }
+      } else if (errorCode === 'EMAIL_NOT_VERIFIED') {
+        // User hasn't verified email yet
+        if (typeof window !== 'undefined') {
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              type: 'warning',
+              message: '📧 Please verify your email address before accessing your account.',
+              duration: 6000
+            }
+          });
+          window.dispatchEvent(toastEvent);
+
+          // Clear token and redirect to login
+          Cookies.remove('token');
+          localStorage.removeItem('navbarUser');
+          localStorage.removeItem('dashboardUser');
+
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
+        }
+      } else {
+        // Actual session expiration - only show the message once
+        if (!sessionExpiredShown && typeof window !== 'undefined') {
+          sessionExpiredShown = true;
+
+          // Show session expired toast
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              type: 'error',
+              message: 'Your session has expired. Please log in again.',
+              duration: 5000
+            }
+          });
+          window.dispatchEvent(toastEvent);
+
+          // Clear all auth-related data
+          Cookies.remove('token');
+          localStorage.removeItem('navbarUser');
+          localStorage.removeItem('dashboardUser');
+
+          // Redirect to login after a short delay to show the toast
+          setTimeout(() => {
+            sessionExpiredShown = false; // Reset for next session
+            window.location.href = '/login';
+          }, 1500);
+        }
+      }
     }
+
     return Promise.reject(error);
   }
 );
@@ -311,6 +384,13 @@ export const resumeApi = {
 
   downloadPDF: async (resumeId: number) => {
     const response = await api.get(`/api/resumes/pdf/${resumeId}`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  downloadWord: async (resumeId: number) => {
+    const response = await api.get(`/api/resumes/docx/${resumeId}`, {
       responseType: 'blob',
     });
     return response.data;
