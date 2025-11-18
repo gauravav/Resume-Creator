@@ -17,7 +17,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { authApi, getApiBaseUrl } from '@/lib/api';
-import { isAuthenticatedWithValidation } from '@/lib/auth';
+import { isAuthenticatedWithValidation, getToken } from '@/lib/auth';
 import Layout from '@/components/Layout';
 
 interface DashboardStats {
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
       
       const API_BASE_URL = getApiBaseUrl();
       
@@ -156,9 +156,9 @@ export default function AdminDashboard() {
 
   const handleApproveUser = async (userId: number) => {
     setLoadingStates(prev => ({ ...prev, [`approve-${userId}`]: true }));
-    
+
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
       
       const API_BASE_URL = getApiBaseUrl();
       
@@ -191,9 +191,9 @@ export default function AdminDashboard() {
     }
 
     setLoadingStates(prev => ({ ...prev, [`reject-${rejectModal.userId}`]: true }));
-    
+
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
       
       const API_BASE_URL = getApiBaseUrl();
       
@@ -231,7 +231,7 @@ export default function AdminDashboard() {
     setLoadingStates(prev => ({ ...prev, [`reset-${userId}`]: true }));
 
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
 
       const API_BASE_URL = getApiBaseUrl();
 
@@ -267,7 +267,7 @@ export default function AdminDashboard() {
     setLoadingStates(prev => ({ ...prev, [`delete-${deleteModal.userId}`]: true }));
 
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
 
       const API_BASE_URL = getApiBaseUrl();
 

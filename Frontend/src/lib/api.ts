@@ -535,8 +535,8 @@ export const resumeApi = {
       return null;
     }
 
-    // Get token from cookies (same as other API calls)
-    const token = Cookies.get('token');
+    // Get token from cookies (support both new and old token names)
+    const token = Cookies.get('accessToken') || Cookies.get('token');
     if (!token) {
       console.error('No authentication token found for SSE connection');
       if (onError) {

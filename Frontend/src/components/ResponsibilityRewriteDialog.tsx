@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Wand2, Loader2, Replace, Trash2 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api';
+import { getToken } from '@/lib/auth';
 
 interface ResponsibilityRewriteDialogProps {
   isOpen: boolean;
@@ -42,11 +43,8 @@ export default function ResponsibilityRewriteDialog({
     setError('');
 
     try {
-      // Get token from cookies
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('token='))
-        ?.split('=')[1];
+      // Get token from auth library
+      const token = getToken();
 
       // For new items, handle the request differently
       let requestBody;

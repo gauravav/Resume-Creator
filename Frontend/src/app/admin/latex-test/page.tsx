@@ -13,7 +13,7 @@ import {
   FileText
 } from 'lucide-react';
 import { authApi, getApiBaseUrl } from '@/lib/api';
-import { isAuthenticatedWithValidation } from '@/lib/auth';
+import { isAuthenticatedWithValidation, getToken } from '@/lib/auth';
 import Layout from '@/components/Layout';
 
 export default function LatexTestPage() {
@@ -118,7 +118,7 @@ Proficient in JavaScript, Python, and cloud technologies.
 
   const checkLatexStatus = async () => {
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
       const API_BASE_URL = getApiBaseUrl();
 
       const response = await fetch(`${API_BASE_URL}/api/latex/status`, {
@@ -174,7 +174,7 @@ Proficient in JavaScript, Python, and cloud technologies.
     setSuccess('');
 
     try {
-      const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
+      const token = getToken();
       const API_BASE_URL = getApiBaseUrl();
 
       const response = await fetch(`${API_BASE_URL}/api/latex/convert`, {

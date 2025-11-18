@@ -1,8 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import Cookies from 'js-cookie';
 import { tutorialApi } from '@/lib/api';
+import { getAccessToken } from '@/lib/auth';
 
 export interface TutorialStep {
   id: string;
@@ -46,7 +46,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   useEffect(() => {
     const fetchTutorialStatus = async () => {
       // Check if user is authenticated before calling API
-      const token = Cookies.get('token');
+      const token = getAccessToken();
 
       if (token) {
         // User is authenticated, fetch from API

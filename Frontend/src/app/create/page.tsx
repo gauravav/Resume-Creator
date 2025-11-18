@@ -14,8 +14,8 @@ import {
   AlertCircle,
   HelpCircle
 } from 'lucide-react';
-import { isAuthenticatedWithValidation } from '@/lib/auth';
-import { resumeApi, Resume } from '@/lib/api';
+import { isAuthenticatedWithValidation, getToken } from '@/lib/auth';
+import { resumeApi, Resume, getApiBaseUrl } from '@/lib/api';
 import { ResumeData } from '@/types/resume';
 
 // Helper function to ensure technologies is in array format
@@ -106,10 +106,7 @@ export default function CreateResumePage() {
     setUrlError('');
 
     try {
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('token='))
-        ?.split('=')[1];
+      const token = getToken();
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3200'}/api/jobs/scrape`, {
         method: 'POST',
