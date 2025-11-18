@@ -8,16 +8,40 @@ interface TokenPayload {
   exp: number;
 }
 
+// New token management for access and refresh tokens
+export const setTokens = (accessToken: string, refreshToken: string) => {
+  Cookies.set('accessToken', accessToken, { expires: 7 });
+  Cookies.set('refreshToken', refreshToken, { expires: 7 });
+  // Remove old token cookie if it exists
+  Cookies.remove('token');
+};
+
+export const getAccessToken = (): string | null => {
+  return Cookies.get('accessToken') || Cookies.get('token') || null; // Support both old and new
+};
+
+export const getRefreshToken = (): string | null => {
+  return Cookies.get('refreshToken') || null;
+};
+
+export const removeTokens = () => {
+  Cookies.remove('accessToken');
+  Cookies.remove('refreshToken');
+  Cookies.remove('token'); // Remove old token cookie
+};
+
+// Legacy methods for backward compatibility
 export const setToken = (token: string) => {
-  Cookies.set('token', token, { expires: 7 });
+  Cookies.set('accessToken', token, { expires: 7 });
+  Cookies.remove('token'); // Remove old token cookie
 };
 
 export const getToken = (): string | null => {
-  return Cookies.get('token') || null;
+  return getAccessToken();
 };
 
 export const removeToken = () => {
-  Cookies.remove('token');
+  removeTokens();
 };
 
 export const isAuthenticated = (): boolean => {

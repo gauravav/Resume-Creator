@@ -34,7 +34,7 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = Cookies.get('token');
+  const token = Cookies.get('accessToken') || Cookies.get('token'); // Support both old and new token names
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -48,9 +48,27 @@ const RATE_LIMIT_TOAST_COOLDOWN = 10000; // 10 seconds cooldown between same rat
 // Session expiration toast deduplication
 let sessionExpiredShown = false;
 
+// Track if we're currently refreshing to avoid multiple simultaneous refresh attempts
+let isRefreshing = false;
+let failedQueue: Array<{resolve: (value?: unknown) => void; reject: (reason?: unknown) => void}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
     // Handle rate limiting errors
     if (error.response?.status === 429) {
       const errorData = error.response.data;
@@ -86,9 +104,108 @@ api.interceptors.response.use(
         !error.config?.url?.includes('/api/auth/register') &&
         !error.config?.url?.includes('/api/auth/resend-verification')) {
 
-      // Check if it's a pending approval error
+      // Check if it's a token expiration error
       const errorCode = error.response?.data?.code;
       const errorMessage = error.response?.data?.message;
+
+      // Handle token expiration with refresh token
+      if (errorCode === 'TOKEN_EXPIRED' && !originalRequest._retry) {
+        if (isRefreshing) {
+          // If already refreshing, queue this request
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          }).then(() => {
+            return api(originalRequest);
+          }).catch(err => {
+            return Promise.reject(err);
+          });
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        const refreshToken = Cookies.get('refreshToken');
+        if (!refreshToken) {
+          // No refresh token available, redirect to login
+          isRefreshing = false;
+          if (!sessionExpiredShown && typeof window !== 'undefined') {
+            sessionExpiredShown = true;
+            const toastEvent = new CustomEvent('showToast', {
+              detail: {
+                type: 'error',
+                message: 'Your session has expired. Please log in again.',
+                duration: 5000
+              }
+            });
+            window.dispatchEvent(toastEvent);
+
+            Cookies.remove('accessToken');
+            Cookies.remove('refreshToken');
+            Cookies.remove('token'); // Remove old token cookie
+            localStorage.removeItem('navbarUser');
+            localStorage.removeItem('dashboardUser');
+
+            setTimeout(() => {
+              sessionExpiredShown = false;
+              window.location.href = '/login';
+            }, 1500);
+          }
+          return Promise.reject(error);
+        }
+
+        try {
+          // Attempt to refresh the token
+          const response = await axios.post(`${API_BASE_URL}/api/auth/refresh-token`, {
+            refreshToken
+          });
+
+          const { accessToken, refreshToken: newRefreshToken } = response.data;
+
+          // Update tokens in cookies
+          Cookies.set('accessToken', accessToken, { expires: 7 });
+          Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
+          Cookies.remove('token'); // Remove old token cookie
+
+          // Update authorization header for the original request
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+          // Process queued requests
+          processQueue(null, accessToken);
+          isRefreshing = false;
+
+          // Retry the original request
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Refresh token failed or expired
+          processQueue(refreshError, null);
+          isRefreshing = false;
+
+          if (!sessionExpiredShown && typeof window !== 'undefined') {
+            sessionExpiredShown = true;
+            const toastEvent = new CustomEvent('showToast', {
+              detail: {
+                type: 'error',
+                message: 'Your session has expired. Please log in again.',
+                duration: 5000
+              }
+            });
+            window.dispatchEvent(toastEvent);
+
+            Cookies.remove('accessToken');
+            Cookies.remove('refreshToken');
+            Cookies.remove('token'); // Remove old token cookie
+            localStorage.removeItem('navbarUser');
+            localStorage.removeItem('dashboardUser');
+
+            setTimeout(() => {
+              sessionExpiredShown = false;
+              window.location.href = '/login';
+            }, 1500);
+          }
+
+          return Promise.reject(refreshError);
+        }
+      }
 
       if (errorCode === 'PENDING_APPROVAL' || errorMessage?.includes('pending approval')) {
         // User is waiting for admin approval - show friendly message
@@ -216,24 +333,34 @@ export const authApi = {
     const response = await api.post('/api/auth/register', credentials);
     return response.data;
   },
-  
+
   getMe: async () => {
     const response = await api.get('/api/auth/me');
     return response.data;
   },
-  
+
   validateToken: async () => {
     const response = await api.get('/api/auth/validate');
     return response.data;
   },
-  
+
   verifyEmail: async (token: string) => {
     const response = await api.get(`/api/auth/verify-email?token=${token}`);
     return response.data;
   },
-  
+
   resendVerificationEmail: async (email: string) => {
     const response = await api.post('/api/auth/resend-verification', { email });
+    return response.data;
+  },
+
+  refreshToken: async (refreshToken: string) => {
+    const response = await api.post('/api/auth/refresh-token', { refreshToken });
+    return response.data;
+  },
+
+  logout: async () => {
+    const response = await api.post('/api/auth/logout');
     return response.data;
   },
 };

@@ -268,6 +268,41 @@ class User {
     return result.rows[0];
   }
 
+  static async updateRefreshToken(userId, refreshToken, expiresAt) {
+    const query = `
+      UPDATE users
+      SET refresh_token = $1,
+          refresh_token_expires = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING id, email
+    `;
+    const result = await pool.query(query, [refreshToken, expiresAt, userId]);
+    return result.rows[0];
+  }
+
+  static async findByRefreshToken(refreshToken) {
+    const query = `
+      SELECT * FROM users
+      WHERE refresh_token = $1
+    `;
+    const result = await pool.query(query, [refreshToken]);
+    return result.rows[0];
+  }
+
+  static async clearRefreshToken(userId) {
+    const query = `
+      UPDATE users
+      SET refresh_token = NULL,
+          refresh_token_expires = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING id, email
+    `;
+    const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  }
+
   static async deleteUser(userId) {
     const client = await pool.connect();
     try {

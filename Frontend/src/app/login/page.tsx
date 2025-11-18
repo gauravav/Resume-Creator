@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, LogIn, RefreshCw } from 'lucide-react';
 import { authApi } from '@/lib/api';
-import { setToken } from '@/lib/auth';
+import { setTokens } from '@/lib/auth';
 import Layout from '@/components/Layout';
 import { useToast } from '@/components/ToastContainer';
 
@@ -41,8 +41,14 @@ export default function LoginPage() {
 
     try {
       const response = await authApi.login(data);
-      setToken(response.token);
-      
+      // Handle both new token system (accessToken + refreshToken) and legacy (token)
+      if (response.accessToken && response.refreshToken) {
+        setTokens(response.accessToken, response.refreshToken);
+      } else if (response.token) {
+        // Legacy support - treat single token as access token
+        setTokens(response.token, '');
+      }
+
       showToast({
         type: 'success',
         message: 'Successfully logged in! Welcome back.',

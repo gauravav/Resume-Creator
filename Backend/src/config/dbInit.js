@@ -293,6 +293,10 @@ const initializeDatabase = async () => {
       logger.info('✅ Created index on tutorial_completed column');
     }
 
+    // NOTE: Column additions and schema changes should now be done via migrations
+    // See /migrations folder for database migrations
+    // Run migrations with: npm run migrate
+
     logger.info('🎉 Database initialization completed successfully');
     
   } catch (error) {

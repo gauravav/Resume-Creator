@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "migrate": "node run_migration.js",
+    "migrate": "node migrations/scripts/migrate.js",
+    "migrate:status": "node migrations/scripts/status.js",
+    "migrate:rollback": "node migrations/scripts/rollback.js",
+    "migrate:create": "node migrations/scripts/create.js",
     "reset-db": "node reset_database.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:start:prod": "pm2 start ecosystem.config.js --env production",

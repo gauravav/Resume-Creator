@@ -17,6 +17,7 @@ const latexRoutes = require('./routes/latex');
 const tutorialRoutes = require('./routes/tutorial');
 const { initializeBucket } = require('./config/minio');
 const { initializeDatabase, checkDatabaseConnection } = require('./config/dbInit');
+const migrationRunner = require('../migrations/migrationRunner');
 const emailService = require('./services/emailService');
 
 const app = express();
@@ -106,11 +107,12 @@ const startServer = async () => {
   const startupErrors = [];
   let dbConnected = false;
   let dbInitialized = false;
+  let migrationsRun = false;
   let minioConnected = false;
 
   try {
     // Step 1: Check database connection
-    logger.info('🔍 Step 1/3: Checking database connection...');
+    logger.info('🔍 Step 1/4: Checking database connection...');
     try {
       await checkDatabaseConnection();
       dbConnected = true;
@@ -125,8 +127,8 @@ const startServer = async () => {
       throw new Error('Database connection failed');
     }
 
-    // Step 2: Initialize database (create tables, add columns)
-    logger.info('🔍 Step 2/3: Initializing database schema...');
+    // Step 2: Initialize database (create tables)
+    logger.info('🔍 Step 2/4: Initializing database schema...');
     try {
       await initializeDatabase();
       dbInitialized = true;
@@ -141,8 +143,29 @@ const startServer = async () => {
       throw new Error('Database initialization failed');
     }
 
-    // Step 3: Check MinIO connection
-    logger.info('🔍 Step 3/3: Checking file storage (MinIO) connection...');
+    // Step 3: Run database migrations
+    logger.info('🔍 Step 3/4: Running database migrations...');
+    try {
+      const migrationResult = await migrationRunner.runPendingMigrations();
+      migrationsRun = true;
+
+      if (migrationResult.executed > 0) {
+        logger.info(`✅ Database migrations completed (${migrationResult.executed} executed, ${migrationResult.skipped} skipped)`);
+      } else {
+        logger.info('✅ Database is up to date - no migrations to run');
+      }
+    } catch (error) {
+      startupErrors.push({
+        step: 'Database Migrations',
+        error: error.message,
+        critical: true
+      });
+      logger.error('❌ Database migrations failed', { error: error.message });
+      throw new Error('Database migrations failed');
+    }
+
+    // Step 4: Check MinIO connection
+    logger.info('🔍 Step 4/4: Checking file storage (MinIO) connection...');
     try {
       await initializeBucket();
       minioConnected = true;
@@ -265,6 +288,7 @@ const startServer = async () => {
       const errorDetails = {
         databaseConnection: dbConnected ? 'Connected ✅' : 'Failed ❌',
         databaseInitialization: dbInitialized ? 'Initialized ✅' : 'Failed ❌',
+        databaseMigrations: migrationsRun ? 'Completed ✅' : 'Failed ❌',
         fileStorage: minioConnected ? 'Connected ✅' : 'Failed ❌',
         errors: startupErrors.map(e => `${e.step}: ${e.error}`).join('\n'),
         timestamp: new Date().toISOString()
